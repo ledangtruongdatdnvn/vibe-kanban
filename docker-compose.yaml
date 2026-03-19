@@ -34,8 +34,6 @@ services:
     depends_on:
       remote-db:
         condition: service_healthy
-      remote-server:
-        condition: service_healthy
 
   remote-server:
     build:
