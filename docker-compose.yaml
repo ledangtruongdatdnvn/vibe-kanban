@@ -39,7 +39,7 @@ services:
 
   remote-server:
     build:
-      context: ../..
+      context: .
       dockerfile: crates/remote/Dockerfile
       args:
         VITE_RELAY_API_BASE_URL: ${VITE_RELAY_API_BASE_URL:-}
