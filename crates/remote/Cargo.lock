@@ -99,7 +99,7 @@ checksum = "7f202df86484c868dbad7eaa557ef785d5c66295e41b460ef922eca0723b842c"
 
 [[package]]
 name = "api-types"
-version = "0.1.32"
+version = "0.1.35"
 dependencies = [
  "chrono",
  "schemars",
@@ -3183,8 +3183,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dc897dd8d9e8bd1ed8cdad82b5966c3e0ecae09fb1907d58efaa013543185d0a"
 
 [[package]]
+name = "relay-types"
+version = "0.1.35"
+dependencies = [
+ "chrono",
+ "serde",
+ "sqlx",
+ "ts-rs",
+ "uuid",
+]
+
+[[package]]
 name = "remote"
-version = "0.1.23"
+version = "0.1.25"
 dependencies = [
  "aes-gcm",
  "anyhow",
@@ -3213,6 +3224,7 @@ dependencies = [
  "opentelemetry-http",
  "opentelemetry_sdk",
  "rand 0.9.2",
+ "relay-types",
  "reqwest 0.12.28",
  "reqwest 0.13.2",
  "rustls",
@@ -4835,7 +4847,7 @@ checksum = "b6c140620e7ffbb22c2dee59cafe6084a59b5ffc27a8859a5f0d494b5d52b6be"
 
 [[package]]
 name = "utils"
-version = "0.1.32"
+version = "0.1.35"
 dependencies = [
  "axum",
  "bytes",

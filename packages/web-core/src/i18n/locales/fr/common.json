@@ -53,7 +53,8 @@
     },
     "subagent": {
       "defaultType": "Sous-agent"
-    }
+    },
+    "loadingEarlierMessages": "Chargement des messages pr\u00e9c\u00e9dents"
   },
   "folderPicker": {
     "legend": "Cliquez sur les noms de dossiers pour naviguer • Utilisez les boutons d'action pour sélectionner",
@@ -536,7 +537,7 @@
   },
   "appBar": {
     "kanban": {
-      "tooltip": "Kanban",
+      "tooltip": "Connectez-vous pour voir les projets",
       "title": "Tableaux Kanban",
       "description": "Connectez-vous pour organiser vos agents de codage avec des tableaux kanban.",
       "migrateOldProjects": "Migrer les anciens projets"
