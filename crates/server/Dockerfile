@@ -130,15 +130,22 @@ RUN apt-get update \
   && apt-get install -y --no-install-recommends \
        ca-certificates libssl3 wget curl git git-lfs openssh-client \
   && git lfs install --system \
-  && rm -rf /var/lib/apt/lists/*
+  && rm -rf /var/lib/apt/lists/* \
+  && useradd -m -u 1000 -s /bin/bash vibe \
+  && mkdir -p /home/vibe/repos /home/vibe/.vibe-kanban \
+  && chown -R vibe:vibe /home/vibe
 
 COPY --from=builder /app/bin/server /usr/local/bin/vibe-kanban-server
+
+USER vibe
+WORKDIR /home/vibe
 
 # Default runtime configuration — override via docker-compose environment:
 #   VK_SHARED_API_BASE / VK_SHARED_RELAY_API_BASE override the compile-time
 #   values and are useful when images are built without baked-in URLs.
 ENV BACKEND_PORT=3004 \
-    RUST_LOG=info
+    RUST_LOG=info \
+    HOME=/home/vibe
 
 EXPOSE 3004
 
