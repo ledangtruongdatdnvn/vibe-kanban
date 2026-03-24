@@ -249,10 +249,27 @@ docker logs vibe-kanban-host-1 --tail 30
 
 | Volume | Nội dung | Path trong container |
 |--------|----------|---------------------|
-| `host-data` | SQLite DB, config, SSH keys | `/root/.vibe-kanban` |
-| `host-repos` | Repos được clone | `/root/repos` |
-| `claude-credentials` | OAuth token Claude | `/root/.claude` |
-| `codex-credentials` | Auth token Codex | `/root/.codex` |
+| `host-data` | SQLite DB, config, SSH keys | `/home/node/.vibe-kanban` |
+| `/root/repos` (bind) | Repos được clone | `/home/node/repos` |
+| `claude-credentials` | OAuth token Claude | `/home/node/.claude` |
+| `codex-credentials` | Auth token Codex | `/home/node/.codex` |
+
+### Thêm repo vào HOST
+
+Container chạy as user `node` (UID 1000). Cần tạo thư mục và set ownership đúng **1 lần duy nhất** trên server:
+
+```bash
+mkdir -p /root/repos
+chown -R 1000:1000 /root/repos
+```
+
+Sau đó clone repo bình thường:
+
+```bash
+git clone https://github.com/your-org/your-repo.git /root/repos/your-repo
+```
+
+Trong Vibe Kanban UI: **Settings → Repos → Add** → nhập path `/home/node/repos/your-repo`.
 
 ---
 
