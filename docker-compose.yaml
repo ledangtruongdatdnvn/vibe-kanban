@@ -156,8 +156,8 @@ services:
       # Persistent data: SQLite DB, credentials, config, SSH keys
       - host-data:/root/.vibe-kanban
       # Mount a directory where repos will be cloned / worked on.
-      # Map to whatever path makes sense on the host machine.
-      - host-repos:/root/repos
+      # Clone repos to /root/repos on the server, they appear at /root/repos in container.
+      - /root/repos:/root/repos
       # ── AI subscription credentials (Option B) ──────────────────────────
       # These volumes persist the login state created by `claude login` /
       # `codex login` so you only need to authenticate once.
@@ -176,6 +176,5 @@ volumes:
   remote-db-data:
   electric-data:
   host-data:
-  host-repos:
   claude-credentials:
   codex-credentials:
