@@ -54,7 +54,14 @@ ENV VK_SHARED_API_BASE=${VK_SHARED_API_BASE}
 ENV VK_SHARED_RELAY_API_BASE=${VK_SHARED_RELAY_API_BASE}
 
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends pkg-config libssl-dev ca-certificates git openssh-client \
+  && apt-get install -y --no-install-recommends \
+       pkg-config libssl-dev ca-certificates git openssh-client \
+       # cmake + nasm: required by aws-lc-sys (crypto used by rustls/TLS)
+       cmake nasm \
+       # libgit2-dev: lets git2 crate link system libgit2 instead of building from source
+       libgit2-dev \
+       # clang: needed by aws-lc-sys for bindgen on some platforms
+       clang \
   && mkdir -p -m 0700 /root/.ssh \
   && ssh-keyscan github.com >> /root/.ssh/known_hosts \
   && chmod 600 /root/.ssh/known_hosts \
