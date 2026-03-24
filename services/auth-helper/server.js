@@ -235,14 +235,22 @@ const server = http.createServer(async (req, res) => {
       }
 
       // Validate that credentials is valid JSON
-      try { JSON.parse(credentials); } catch {
+      let credObj;
+      try { credObj = JSON.parse(credentials); } catch {
         return json(res, 400, { error: 'credentials must be valid JSON' });
+      }
+
+      // Normalise macOS Keychain key name → Linux credentials.json format
+      if (tool === 'claude' && credObj.claudeAiOauth && !credObj.claudeAiOauthToken) {
+        credObj = { ...credObj, claudeAiOauthToken: credObj.claudeAiOauth };
+        delete credObj.claudeAiOauth;
       }
 
       const dir      = tool === 'claude' ? CLAUDE_DIR : CODEX_DIR;
       const filename = tool === 'claude' ? 'credentials.json' : 'auth.json';
       ensureDir(dir);
-      fs.writeFileSync(path.join(dir, filename), credentials, { mode: 0o600 });
+      // mode 0o644 so the HOST container's non-root user can read this file
+      fs.writeFileSync(path.join(dir, filename), JSON.stringify(credObj, null, 2), { mode: 0o644 });
 
       console.log(`[auth-helper] saved ${tool} credentials to ${dir}/${filename}`);
       return json(res, 200, { message: `${tool} credentials saved successfully.` });
