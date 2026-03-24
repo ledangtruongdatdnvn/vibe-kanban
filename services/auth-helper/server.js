@@ -113,14 +113,14 @@ const HTML = String.raw`<!DOCTYPE html>
       <span class="badge" id="claude-badge">loading…</span>
     </h2>
     <div class="hint">
-      On your <strong>local machine</strong>, run:<br>
-      <code>cat ~/.claude/credentials.json</code><br>
+      On your <strong>local Mac</strong>, run:<br>
+      <code>security find-generic-password -s "Claude Code-credentials" -w</code><br>
       then paste the output below.
     </div>
     <div class="status-row">
       <small id="claude-status" style="color:#64748b">checking…</small>
     </div>
-    <textarea id="claude-ta" placeholder='{"claudeAiOauthToken":{"accessToken":"..."}}'></textarea>
+    <textarea id="claude-ta" placeholder='{"claudeAiOauth":{"accessToken":"sk-ant-oat01-...","refreshToken":"sk-ant-ort01-...","expiresAt":...}}'></textarea>
     <br>
     <button onclick="save('claude')">Save Claude credentials</button>
     <div class="msg" id="claude-msg"></div>
@@ -216,7 +216,7 @@ const server = http.createServer(async (req, res) => {
     // GET /status
     if (req.method === 'GET' && req.url === '/status') {
       return json(res, 200, {
-        claude: statusFor(CLAUDE_DIR, 'credentials.json'),
+        claude: statusFor(CLAUDE_DIR, '.credentials.json'),
         codex:  statusFor(CODEX_DIR,  'auth.json'),
       });
     }
@@ -240,16 +240,10 @@ const server = http.createServer(async (req, res) => {
         return json(res, 400, { error: 'credentials must be valid JSON' });
       }
 
-      // Normalise macOS Keychain key name → Linux credentials.json format
-      if (tool === 'claude' && credObj.claudeAiOauth && !credObj.claudeAiOauthToken) {
-        credObj = { ...credObj, claudeAiOauthToken: credObj.claudeAiOauth };
-        delete credObj.claudeAiOauth;
-      }
-
       const dir      = tool === 'claude' ? CLAUDE_DIR : CODEX_DIR;
-      const filename = tool === 'claude' ? 'credentials.json' : 'auth.json';
+      const filename = tool === 'claude' ? '.credentials.json' : 'auth.json';
       ensureDir(dir);
-      // mode 0o644 so the HOST container's non-root user can read this file
+      // mode 0o644 — auth-helper runs as root; HOST container's node user needs read access
       fs.writeFileSync(path.join(dir, filename), JSON.stringify(credObj, null, 2), { mode: 0o644 });
 
       console.log(`[auth-helper] saved ${tool} credentials to ${dir}/${filename}`);
