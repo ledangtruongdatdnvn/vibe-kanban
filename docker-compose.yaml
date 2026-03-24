@@ -79,6 +79,103 @@ services:
       RELAY_LISTEN_ADDR: 0.0.0.0:8082
       VIBEKANBAN_REMOTE_JWT_SECRET: ${VIBEKANBAN_REMOTE_JWT_SECRET}
 
+  # ── Auth-helper service ───────────────────────────────────────────────────
+  # Tiny web UI (accessible at http://127.0.0.1:3005) where you paste
+  # ~/.claude/credentials.json from your LOCAL machine to authenticate the
+  # HOST container.  No SSH tunnel or browser-in-Docker needed.
+  #
+  # After pasting, the credentials are saved into the shared Docker volumes
+  # (claude-credentials / codex-credentials) and picked up automatically by
+  # the HOST container on the next task run.
+  #
+  # Security: bind to 127.0.0.1 only — access via SSH tunnel:
+  #   ssh -L 3005:localhost:3005 user@your-server
+  # then open http://localhost:3005 in your local browser.
+  auth-helper:
+    build:
+      context: services/auth-helper
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      CLAUDE_CREDS_DIR: /creds/claude
+      CODEX_CREDS_DIR:  /creds/codex
+    volumes:
+      - claude-credentials:/creds/claude
+      - codex-credentials:/creds/codex
+    ports:
+      - "127.0.0.1:3005:3005"
+
+  # ── HOST service ──────────────────────────────────────────────────────────
+  # Runs the vibe-kanban local server on this machine so that it acts as a
+  # coding HOST reachable from any browser via the relay tunnel.
+  #
+  # How it works:
+  #   1. The server starts and serves the embedded web UI on BACKEND_PORT.
+  #   2. After you (or any user) log in through the web UI, the server
+  #      automatically opens a WebSocket tunnel to relay-server and registers
+  #      this machine as a HOST.
+  #   3. Remote browsers routed through remote-server → relay-server can then
+  #      interact with this HOST without it needing a public port.
+  #
+  # Required env vars (set in .env or export before `docker compose up`):
+  #   DOMAIN                      public hostname of this stack (already used above)
+  #   VIBEKANBAN_REMOTE_JWT_SECRET  already required by remote-server
+  #
+  # Optional — build-time URL baking (set before first `docker compose build`):
+  #   VK_SHARED_API_BASE          defaults to https://${DOMAIN}
+  #   VK_SHARED_RELAY_API_BASE    defaults to https://${DOMAIN}/relay
+  host:
+    build:
+      context: .
+      dockerfile: crates/server/Dockerfile
+      args:
+        # Bake the public URLs into the binary so the frontend and relay
+        # client know where to connect without extra runtime config.
+        VK_SHARED_API_BASE: ${VK_SHARED_API_BASE:-https://${DOMAIN}}
+        VK_SHARED_RELAY_API_BASE: ${VK_SHARED_RELAY_API_BASE:-https://${DOMAIN}/relay}
+    restart: unless-stopped
+    depends_on:
+      remote-server:
+        condition: service_healthy
+      relay-server:
+        condition: service_started
+    environment:
+      RUST_LOG: info
+      BACKEND_PORT: 3004
+      # Runtime overrides (take precedence over compile-time values).
+      # Inside the Docker network the server can reach relay-server directly.
+      VK_SHARED_API_BASE: ${VK_SHARED_API_BASE:-https://${DOMAIN}}
+      VK_SHARED_RELAY_API_BASE: ${VK_SHARED_RELAY_API_BASE:-http://relay-server:8082}
+      # ── AI executor credentials ─────────────────────────────────────────
+      # Option A – API keys (pay-per-use).  Set in your .env file.
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      # Option B – subscription login (see "next steps" below).
+      # Leave these blank; credentials are persisted in the volumes.
+    volumes:
+      # Persistent data: SQLite DB, credentials, config, SSH keys
+      - host-data:/root/.vibe-kanban
+      # Mount a directory where repos will be cloned / worked on.
+      # Map to whatever path makes sense on the host machine.
+      - host-repos:/root/repos
+      # ── AI subscription credentials (Option B) ──────────────────────────
+      # These volumes persist the login state created by `claude login` /
+      # `codex login` so you only need to authenticate once.
+      - claude-credentials:/root/.claude
+      - codex-credentials:/root/.codex
+      # Allow the server to spawn Docker-based executors (optional — remove
+      # this line if you do not want the HOST to control the Docker daemon).
+      - /var/run/docker.sock:/var/run/docker.sock
+    # Expose the backend port for direct local access / debugging.
+    # In production the relay tunnel handles all external traffic, so this
+    # port does NOT need to be forwarded through a reverse proxy.
+    ports:
+      - "127.0.0.1:3004:3004"
+
 volumes:
   remote-db-data:
   electric-data:
+  host-data:
+  host-repos:
+  claude-credentials:
+  codex-credentials:
