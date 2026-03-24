@@ -154,15 +154,15 @@ services:
       # Leave these blank; credentials are persisted in the volumes.
     volumes:
       # Persistent data: SQLite DB, credentials, config, SSH keys
-      - host-data:/home/vibe/.vibe-kanban
+      - host-data:/home/node/.vibe-kanban
       # Mount a directory where repos will be cloned / worked on.
-      # Clone repos to /root/repos on the server, they appear at /home/vibe/repos in container.
-      - /root/repos:/home/vibe/repos
+      # Clone repos to /root/repos on the server, they appear at /home/node/repos in container.
+      - /root/repos:/home/node/repos
       # ── AI subscription credentials (Option B) ──────────────────────────
       # These volumes persist the login state created by `claude login` /
       # `codex login` so you only need to authenticate once.
-      - claude-credentials:/home/vibe/.claude
-      - codex-credentials:/home/vibe/.codex
+      - claude-credentials:/home/node/.claude
+      - codex-credentials:/home/node/.codex
       # Allow the server to spawn Docker-based executors (optional — remove
       # this line if you do not want the HOST to control the Docker daemon).
       - /var/run/docker.sock:/var/run/docker.sock
