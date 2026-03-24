@@ -19,7 +19,7 @@ const CODEX_DIR  = process.env.CODEX_CREDS_DIR  || '/creds/codex';
 // ── helpers ──────────────────────────────────────────────────────────────────
 
 function ensureDir(dir) {
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true, mode: 0o755 });
 }
 
 function readBody(req) {

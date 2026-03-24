@@ -321,3 +321,21 @@ If 404/502:
 ### 405 on relay pairing
 
 MacBook binary is too old (< 0.1.34). Build from source (Option A above).
+
+### "EACCES: permission denied" when saving Codex credentials in auth-helper
+
+The `codex-credentials` volume is freshly mounted — its root directory has restrictive default permissions. Fix once on the server:
+
+```bash
+docker exec -u root $(docker ps --filter "name=auth-helper" --format "{{.Names}}") chmod -R 777 /creds
+```
+
+Then paste credentials again. This only affects first-time use of the Codex volume.
+
+### Codex credentials — getting auth.json from Mac
+
+```bash
+cat ~/.codex/auth.json
+```
+
+Paste output into the "Codex" field in auth-helper (`http://localhost:3005`).
