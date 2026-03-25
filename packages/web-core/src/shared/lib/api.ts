@@ -78,9 +78,10 @@ import {
   Workspace,
   StartReviewRequest,
   ReviewError,
-  OpenPrInfo,
   GitRemote,
   ListPrsError,
+  PullRequestDetail,
+  LinkPrToIssueRequest,
   AttachExistingPrRequest,
   AttachPrResponse,
   CreateWorkspaceFromPrBody,
@@ -101,6 +102,7 @@ import {
   RemoveRelayPairedHostResponse,
   OpenRemoteWorkspaceInEditorRequest,
   OpenRemoteEditorResponse,
+  ProfileResponse,
 } from 'shared/types';
 import type { Project as RemoteProject } from 'shared/remote-types';
 import type { WorkspaceWithSession } from '@/shared/types/attempt';
@@ -950,17 +952,39 @@ export const repoApi = {
   listOpenPrs: async (
     repoId: string,
     remoteName?: string
-  ): Promise<Result<OpenPrInfo[], ListPrsError>> => {
+  ): Promise<Result<PullRequestDetail[], ListPrsError>> => {
     const params = remoteName
       ? `?remote=${encodeURIComponent(remoteName)}`
       : '';
     const response = await makeRequest(`/api/repos/${repoId}/prs${params}`);
-    return handleApiResponseAsResult<OpenPrInfo[], ListPrsError>(response);
+    return handleApiResponseAsResult<PullRequestDetail[], ListPrsError>(
+      response
+    );
   },
 
   listRemotes: async (repoId: string): Promise<GitRemote[]> => {
     const response = await makeRequest(`/api/repos/${repoId}/remotes`);
     return handleApiResponse<GitRemote[]>(response);
+  },
+};
+
+// Issue PR linking APIs
+export const issuePrsApi = {
+  getPrInfo: async (
+    url: string
+  ): Promise<Result<PullRequestDetail, ListPrsError>> => {
+    const response = await makeRequest(
+      `/api/repos/pr-info?url=${encodeURIComponent(url)}`
+    );
+    return handleApiResponseAsResult<PullRequestDetail, ListPrsError>(response);
+  },
+
+  linkToIssue: async (data: LinkPrToIssueRequest): Promise<void> => {
+    const response = await makeRequest('/api/remote/pull-requests/link', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+    await handleApiResponse<void>(response);
   },
 };
 
@@ -1216,7 +1240,19 @@ export const approvalsApi = {
 };
 
 // OAuth API
+export type AuthMethodsResponse = {
+  local_auth_enabled: boolean;
+  oauth_providers: string[];
+};
+
 export const oauthApi = {
+  authMethods: async (): Promise<AuthMethodsResponse> => {
+    const response = await makeRequest('/api/auth/methods', {
+      cache: 'no-store',
+    });
+    return handleApiResponse<AuthMethodsResponse>(response);
+  },
+
   handoffInit: async (
     provider: string,
     returnTo: string
@@ -1237,6 +1273,17 @@ export const oauthApi = {
     return handleApiResponse<StatusResponse>(response);
   },
 
+  localLogin: async (
+    email: string,
+    password: string
+  ): Promise<ProfileResponse> => {
+    const response = await makeRequest('/api/auth/local/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
+    });
+    return handleApiResponse<ProfileResponse>(response);
+  },
+
   logout: async (): Promise<void> => {
     const response = await makeRequest('/api/auth/logout', {
       method: 'POST',
@@ -1251,12 +1298,11 @@ export const oauthApi = {
   },
 
   /** Returns the current access token for the remote server (auto-refreshes if needed) */
-  getToken: async (): Promise<TokenResponse | null> => {
+  getToken: async (): Promise<TokenResponse> => {
     const response = await makeRequest('/api/auth/token');
     if (response.status === 401) {
       throw new ApiError('Unauthorized', 401, response);
     }
-    if (!response.ok) return null;
     return handleApiResponse<TokenResponse>(response);
   },
 

@@ -12,7 +12,6 @@ use deployment::{DeploymentError, RelayHostsNotConfigured, RemoteClientNotConfig
 use executors::{command::CommandBuildError, executors::ExecutorError};
 use git::GitServiceError;
 use git_host::GitHostError;
-use git2::Error as Git2Error;
 use local_deployment::pty::PtyError;
 use relay_hosts::{
     OpenRemoteEditorError, RelayApiError, RelayConnectionError, RelayHostLookupError,
@@ -96,12 +95,6 @@ pub enum ApiError {
 impl From<&'static str> for ApiError {
     fn from(msg: &'static str) -> Self {
         ApiError::BadRequest(msg.to_string())
-    }
-}
-
-impl From<Git2Error> for ApiError {
-    fn from(err: Git2Error) -> Self {
-        ApiError::GitService(GitServiceError::from(err))
     }
 }
 
@@ -206,11 +199,6 @@ fn remote_client_error(err: &RemoteClientError) -> ErrorInfo {
             "RemoteClientError",
             "Remote service timeout. Please try again.",
         ),
-        RemoteClientError::TokenRefreshTimeout => ErrorInfo::with_status(
-            StatusCode::UNAUTHORIZED,
-            "RemoteClientError",
-            "Remote service timeout during token refresh. Please sign in again.",
-        ),
         RemoteClientError::Transport(_) => ErrorInfo::with_status(
             StatusCode::BAD_GATEWAY,
             "RemoteClientError",
@@ -270,6 +258,21 @@ fn remote_client_error(err: &RemoteClientError) -> ErrorInfo {
                     "Internal remote service error. Please try again.",
                 ),
                 HandoffErrorCode::Other(m) => {
+                    if matches!(
+                        m.as_str(),
+                        "invalid_token"
+                            | "expired_token"
+                            | "session_revoked"
+                            | "token_reuse_detected"
+                            | "provider_token_revoked"
+                            | "identity_error"
+                    ) {
+                        return ErrorInfo::with_status(
+                            StatusCode::UNAUTHORIZED,
+                            "RemoteClientError",
+                            "Unauthorized. Please sign in again.",
+                        );
+                    }
                     return ErrorInfo::bad_request(
                         "RemoteClientError",
                         format!("Authentication error: {}", m),
