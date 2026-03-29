@@ -43,8 +43,9 @@ echo "🔍 Detected platform: $PLATFORM"
 echo "🔧 Using target directory: $CARGO_TARGET_DIR"
 
 # Set API base URL for remote features
-export VK_SHARED_API_BASE="https://api.vibekanban.com"
-export VITE_VK_SHARED_API_BASE="https://api.vibekanban.com"
+export VK_SHARED_API_BASE="https://vibe-kanban.solostylist.com"
+export VITE_VK_SHARED_API_BASE="https://vibe-kanban.solostylist.com"
+export VK_SHARED_RELAY_API_BASE="https://relay.solostylist.com"
 
 echo "🧹 Cleaning previous builds..."
 rm -rf npx-cli/dist
