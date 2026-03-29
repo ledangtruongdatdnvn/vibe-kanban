@@ -86,6 +86,8 @@ COPY crates/relay-tunnel-core crates/relay-tunnel-core
 COPY crates/relay-client      crates/relay-client
 COPY crates/relay-control     crates/relay-control
 COPY crates/relay-ws          crates/relay-ws
+COPY crates/relay-webrtc      crates/relay-webrtc
+COPY crates/relay-protocol    crates/relay-protocol
 COPY crates/relay-hosts       crates/relay-hosts
 COPY crates/client-info       crates/client-info
 COPY crates/remote-info       crates/remote-info
@@ -95,6 +97,7 @@ COPY crates/db                crates/db
 COPY crates/executors         crates/executors
 COPY crates/services          crates/services
 COPY crates/worktree-manager  crates/worktree-manager
+COPY crates/ws-bridge         crates/ws-bridge
 COPY crates/workspace-manager crates/workspace-manager
 COPY crates/utils             crates/utils
 COPY crates/git               crates/git
