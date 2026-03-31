@@ -9,23 +9,23 @@ RUN corepack enable
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY packages/ui/package.json packages/ui/package.json
 COPY packages/web-core/package.json packages/web-core/package.json
-COPY packages/auth-helper-web/package.json packages/auth-helper-web/package.json
+COPY packages/host-admin-web/package.json packages/host-admin-web/package.json
 COPY patches/ patches/
 
 RUN pnpm install --frozen-lockfile
 
 COPY packages/ui packages/ui
 COPY packages/web-core packages/web-core
-COPY packages/auth-helper-web packages/auth-helper-web
+COPY packages/host-admin-web packages/host-admin-web
 COPY packages/local-web/tailwind.new.config.js packages/local-web/tailwind.new.config.js
 
-RUN pnpm --filter @vibe/auth-helper-web run build
+RUN pnpm --filter @vibe/host-admin-web run build
 
 FROM node:20-alpine
 WORKDIR /app
 
-COPY services/auth-helper/server.js .
-COPY --from=builder /repo/packages/auth-helper-web/dist ./dist
+COPY services/host-admin/server.js .
+COPY --from=builder /repo/packages/host-admin-web/dist ./dist
 
 ENV NODE_ENV=production
 

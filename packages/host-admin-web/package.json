@@ -1,5 +1,5 @@
 {
-  "name": "@vibe/auth-helper-web",
+  "name": "@vibe/host-admin-web",
   "private": true,
   "version": "0.1.0",
   "type": "module",

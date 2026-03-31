@@ -28,7 +28,7 @@ export default defineConfig({
   resolve: {
     alias: [
       {
-        find: '@auth-helper',
+        find: '@host-admin',
         replacement: path.resolve(__dirname, 'src'),
       },
     ],

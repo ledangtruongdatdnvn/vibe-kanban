@@ -326,7 +326,7 @@ async function cleanPersistedData() {
   });
 }
 
-export function AuthHelperPage() {
+export function HostAdminPage() {
   const [session, setSession] = useState<SessionResponse | null>(null);
   const [sessionError, setSessionError] = useState<string | null>(null);
   const [loginSecret, setLoginSecret] = useState("");

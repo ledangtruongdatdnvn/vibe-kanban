@@ -91,10 +91,10 @@ services:
   #
   # Protect this service with HOST_ADMIN_SECRET and keep it disabled unless
   # you actively need it.
-  auth-helper:
+  host-admin:
     build:
       context: .
-      dockerfile: services/auth-helper/Dockerfile
+      dockerfile: services/host-admin/Dockerfile
     restart: unless-stopped
     environment:
       HOST_ADMIN_SECRET: ${HOST_ADMIN_SECRET:-}

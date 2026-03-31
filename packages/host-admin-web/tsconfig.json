@@ -17,7 +17,7 @@
     "noFallthroughCasesInSwitch": true,
     "baseUrl": ".",
     "paths": {
-      "@auth-helper/*": ["./src/*"]
+      "@host-admin/*": ["./src/*"]
     }
   },
   "include": ["src"],

@@ -10,7 +10,7 @@ Browser  ──►  remote-server  ──►  relay-server  ──►  HOST cont
 - **remote-server**: Web dashboard, auth, database (ElectricSQL)
 - **relay-server**: WebSocket tunnel between browser and HOST
 - **HOST**: Executes Claude/Codex tasks, manages git worktrees
-- **auth-helper**: One-time UI to paste Claude credentials (port 3005, localhost only)
+- **host-admin**: Temporary admin UI for credentials, cleanup, and branch/workspace maintenance (port 3005)
 
 All 4 services run in the same Docker Compose stack on Coolify.
 
@@ -58,11 +58,10 @@ remote-server:  https://vibe-kanban.example.com
 relay-server:   https://relay.example.com
 electric:       (blank — internal only)
 host:           (blank — localhost only, accessed via SSH tunnel)
-auth-helper:    (blank — localhost only, accessed via SSH tunnel)
+host-admin:     (assign only when you need the admin console)
 ```
 
-> **Important:** Do NOT assign a public domain to `host` or `auth-helper`.
-> They are accessed via SSH tunnel only.
+> `host` should remain internal-only. Expose `host-admin` only when you need it, and protect it with `HOST_ADMIN_SECRET`.
 
 ### Environment Variables
 
@@ -94,7 +93,7 @@ First build takes ~15–25 min (full Rust compile). Subsequent builds use cache.
 
 Verify all containers are running:
 ```bash
-docker ps | grep -E "host|relay|remote|auth-helper|electric"
+docker ps | grep -E "host|relay|remote|host-admin|electric"
 ```
 
 ---
@@ -136,7 +135,7 @@ This outputs JSON like:
 
 > If the command fails: make sure Claude Code is installed and you have logged in via `claude auth login` on your Mac at least once.
 
-### 5b. Open auth-helper via SSH tunnel
+### 5b. Open host-admin
 
 ```bash
 ssh -L 3005:localhost:3005 user@your-server
@@ -275,7 +274,7 @@ docker exec -u node <container-name> bash -c \
   'HOME=/home/node npx @anthropic-ai/claude-code@2.1.62 auth status'
 ```
 
-4. If `loggedIn: false` → re-paste credentials via auth-helper (Step 5).
+4. If `loggedIn: false` → re-paste credentials via host-admin (Step 5).
 
 **Root cause notes:**
 - File must be named `.credentials.json` (with leading dot), not `credentials.json`
@@ -322,12 +321,12 @@ If 404/502:
 
 MacBook binary is too old (< 0.1.34). Build from source (Option A above).
 
-### "EACCES: permission denied" when saving Codex credentials in auth-helper
+### "EACCES: permission denied" when saving Codex credentials in host-admin
 
 The `codex-credentials` volume is freshly mounted — its root directory has restrictive default permissions. Fix once on the server:
 
 ```bash
-docker exec -u root $(docker ps --filter "name=auth-helper" --format "{{.Names}}") chmod -R 777 /creds
+docker exec -u root $(docker ps --filter "name=host-admin" --format "{{.Names}}") chmod -R 777 /creds
 ```
 
 Then paste credentials again. This only affects first-time use of the Codex volume.
@@ -338,4 +337,4 @@ Then paste credentials again. This only affects first-time use of the Codex volu
 cat ~/.codex/auth.json
 ```
 
-Paste output into the "Codex" field in auth-helper (`http://localhost:3005`).
+Paste output into the "Codex" field in host-admin (`http://localhost:3005`).
