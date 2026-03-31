@@ -6,6 +6,7 @@ use tower_http::{compression::CompressionLayer, validate_request::ValidateReques
 
 use crate::{DeploymentImpl, middleware};
 
+pub mod admin;
 pub mod approvals;
 pub mod config;
 pub mod containers;
@@ -37,6 +38,7 @@ pub mod workspaces;
 pub fn router(deployment: DeploymentImpl) -> IntoMakeService<Router> {
     let relay_signed_routes = Router::new()
         .route("/health", get(health::health_check))
+        .merge(admin::router())
         .merge(config::router())
         .merge(containers::router(&deployment))
         .merge(workspaces::router(&deployment))

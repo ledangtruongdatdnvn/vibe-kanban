@@ -5,7 +5,7 @@ use axum::{
     extract::{Path, Query, State},
     http::StatusCode,
     response::Json as ResponseJson,
-    routing::{get, post},
+    routing::{delete, get, post},
 };
 use db::models::repo::{Repo, SearchResult, UpdateRepo};
 use deployment::Deployment;
@@ -13,6 +13,7 @@ use git::{GitBranch, GitRemote};
 use git_host::{GitHostError, GitHostProvider, GitHostService, ProviderKind, PullRequestDetail};
 use serde::{Deserialize, Serialize};
 use services::services::file_search::SearchQuery;
+use sqlx::Row;
 use ts_rs::TS;
 use utils::response::ApiResponse;
 use uuid::Uuid;
@@ -91,6 +92,105 @@ pub async fn get_repo_branches(
 
     let branches = deployment.git().get_all_branches(&repo.path)?;
     Ok(ResponseJson(ApiResponse::success(branches)))
+}
+
+#[derive(Debug, Serialize)]
+pub struct DeleteBranchConflict {
+    pub message: String,
+    pub workspaces: Vec<String>,
+}
+
+async fn active_workspace_branch_usage(
+    deployment: &DeploymentImpl,
+    repo_id: Uuid,
+    branch_name: &str,
+) -> Result<Vec<String>, ApiError> {
+    let rows = sqlx::query(
+        r#"
+        SELECT
+            COALESCE(w.name, w.branch) AS workspace_name
+        FROM workspaces w
+        JOIN workspace_repos wr ON wr.workspace_id = w.id
+        WHERE wr.repo_id = ?
+          AND (w.branch = ? OR wr.target_branch = ?)
+        ORDER BY w.updated_at DESC
+        "#,
+    )
+    .bind(repo_id)
+    .bind(branch_name)
+    .bind(branch_name)
+    .fetch_all(&deployment.db().pool)
+    .await?;
+
+    Ok(rows
+        .into_iter()
+        .filter_map(|row| row.try_get::<Option<String>, _>("workspace_name").ok())
+        .flatten()
+        .collect())
+}
+
+pub async fn delete_repo_branch(
+    State(deployment): State<DeploymentImpl>,
+    Path((repo_id, branch_name)): Path<(Uuid, String)>,
+) -> Result<
+    (
+        StatusCode,
+        ResponseJson<ApiResponse<(), DeleteBranchConflict>>,
+    ),
+    ApiError,
+> {
+    let branch_name = branch_name.trim_start_matches('/').trim().to_string();
+    if branch_name.is_empty() {
+        return Err(ApiError::BadRequest("Branch name is required".to_string()));
+    }
+
+    if branch_name.starts_with("origin/") {
+        return Err(ApiError::BadRequest(
+            "Remote branches cannot be deleted from Host Admin".to_string(),
+        ));
+    }
+
+    let repo = deployment
+        .repo()
+        .get_by_id(&deployment.db().pool, repo_id)
+        .await?;
+
+    let branches = deployment.git().get_all_branches(&repo.path)?;
+    let Some(branch) = branches.iter().find(|branch| branch.name == branch_name) else {
+        return Err(ApiError::Repo(db::models::repo::RepoError::NotFound));
+    };
+
+    if branch.is_remote {
+        return Err(ApiError::BadRequest(
+            "Remote branches cannot be deleted from Host Admin".to_string(),
+        ));
+    }
+
+    if branch.is_current {
+        return Err(ApiError::Conflict(format!(
+            "Cannot delete the current branch '{}'",
+            branch_name
+        )));
+    }
+
+    let active_workspaces =
+        active_workspace_branch_usage(&deployment, repo_id, &branch_name).await?;
+    if !active_workspaces.is_empty() {
+        return Ok((
+            StatusCode::CONFLICT,
+            ResponseJson(ApiResponse::error_with_data(DeleteBranchConflict {
+                message: format!(
+                    "Branch '{}' is still referenced by {} workspace(s)",
+                    branch_name,
+                    active_workspaces.len()
+                ),
+                workspaces: active_workspaces,
+            })),
+        ));
+    }
+
+    deployment.git().delete_branch(&repo.path, &branch_name)?;
+    Ok((StatusCode::OK, ResponseJson(ApiResponse::success(()))))
 }
 
 pub async fn get_repo_remotes(
@@ -376,6 +476,10 @@ pub fn router() -> Router<DeploymentImpl> {
             get(get_repo).put(update_repo).delete(delete_repo),
         )
         .route("/repos/{repo_id}/branches", get(get_repo_branches))
+        .route(
+            "/repos/{repo_id}/branches/{*branch_name}",
+            delete(delete_repo_branch),
+        )
         .route("/repos/{repo_id}/remotes", get(get_repo_remotes))
         .route("/repos/{repo_id}/prs", get(list_open_prs))
         .route("/repos/pr-info", get(get_pr_info))

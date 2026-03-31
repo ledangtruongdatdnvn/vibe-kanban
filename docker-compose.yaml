@@ -79,31 +79,35 @@ services:
       RELAY_LISTEN_ADDR: 0.0.0.0:8082
       VIBEKANBAN_REMOTE_JWT_SECRET: ${VIBEKANBAN_REMOTE_JWT_SECRET}
 
-  # ── Auth-helper service ───────────────────────────────────────────────────
-  # Tiny web UI (accessible at http://127.0.0.1:3005) where you paste
-  # ~/.claude/credentials.json from your LOCAL machine to authenticate the
-  # HOST container.  No SSH tunnel or browser-in-Docker needed.
+  # ── Host Admin service ────────────────────────────────────────────────────
+  # Temporary admin console. Start it only when needed, then turn it off.
   #
-  # After pasting, the credentials are saved into the shared Docker volumes
-  # (claude-credentials / codex-credentials) and picked up automatically by
-  # the HOST container on the next task run.
+  # Exposes a small browser UI for:
+  #   - saving Claude / Codex credentials
+  #   - deleting workspaces through the normal host API
+  #   - deleting safe local branches
+  #   - cleaning orphan worktrees
+  #   - wiping persisted host data / saved credentials
   #
-  # Security: bind to 127.0.0.1 only — access via SSH tunnel:
-  #   ssh -L 3005:localhost:3005 user@your-server
-  # then open http://localhost:3005 in your local browser.
+  # Protect this service with HOST_ADMIN_SECRET and keep it disabled unless
+  # you actively need it.
   auth-helper:
     build:
       context: .
       dockerfile: services/auth-helper/Dockerfile
     restart: unless-stopped
     environment:
+      HOST_ADMIN_SECRET: ${HOST_ADMIN_SECRET:-}
+      HOST_ADMIN_BASE_URL: http://host:3004
       CLAUDE_CREDS_DIR: /creds/claude
-      CODEX_CREDS_DIR:  /creds/codex
+      CODEX_CREDS_DIR: /creds/codex
+      HOST_DATA_DIR: /data/host-data
     volumes:
       - claude-credentials:/creds/claude
       - codex-credentials:/creds/codex
+      - host-data:/data/host-data
     ports:
-      - "127.0.0.1:3005:3005"
+      - "3005:3005"
 
   # ── HOST service ──────────────────────────────────────────────────────────
   # Runs the vibe-kanban local server on this machine so that it acts as a
