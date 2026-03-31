@@ -10,6 +10,7 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY packages/ui/package.json packages/ui/package.json
 COPY packages/web-core/package.json packages/web-core/package.json
 COPY packages/auth-helper-web/package.json packages/auth-helper-web/package.json
+COPY patches/ patches/
 
 RUN pnpm install --frozen-lockfile
 
