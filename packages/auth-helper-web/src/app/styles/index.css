@@ -1,0 +1,18 @@
+@import "../../../../web-core/src/app/styles/new/index.css";
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background: hsl(var(--bg-primary));
+  color: hsl(var(--text-normal));
+  font-family: "IBM Plex Sans", "Noto Emoji", sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}

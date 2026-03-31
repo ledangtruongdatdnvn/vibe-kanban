@@ -1,8 +1,8 @@
 /**
  * Minimal credential-injector for vibe-kanban HOST containers.
- * Serves a web UI where you can paste ~/.claude/credentials.json
- * (or ~/.codex/auth.json) from your local machine to save them
- * into the Docker volumes mounted by the HOST container.
+ * Serves a built React UI where you can paste ~/.claude/credentials.json
+ * (or ~/.codex/auth.json) from your local machine to save them into
+ * the Docker volumes mounted by the HOST container.
  *
  * No npm dependencies — uses Node.js built-ins only.
  */
@@ -15,6 +15,19 @@ const path = require("path");
 const PORT = parseInt(process.env.PORT || "3005", 10);
 const CLAUDE_DIR = process.env.CLAUDE_CREDS_DIR || "/creds/claude";
 const CODEX_DIR = process.env.CODEX_CREDS_DIR || "/creds/codex";
+const DIST_DIR = path.join(__dirname, "dist");
+
+const CONTENT_TYPES = {
+  ".css": "text/css; charset=utf-8",
+  ".html": "text/html; charset=utf-8",
+  ".ico": "image/x-icon",
+  ".js": "text/javascript; charset=utf-8",
+  ".json": "application/json; charset=utf-8",
+  ".map": "application/json; charset=utf-8",
+  ".png": "image/png",
+  ".svg": "image/svg+xml",
+  ".txt": "text/plain; charset=utf-8",
+};
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -48,173 +61,59 @@ function statusFor(dir, filename) {
   }
 }
 
-// ── HTML page ─────────────────────────────────────────────────────────────────
+function contentTypeFor(filePath) {
+  return CONTENT_TYPES[path.extname(filePath).toLowerCase()] || "application/octet-stream";
+}
 
-const HTML = String.raw`<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>vibe-kanban · AI credentials</title>
-  <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      background: #0f1117; color: #e2e8f0;
-      min-height: 100vh; display: flex; flex-direction: column;
-      align-items: center; justify-content: flex-start;
-      padding: 2rem 1rem;
-    }
-    h1 { font-size: 1.4rem; font-weight: 600; margin-bottom: 0.3rem; }
-    .sub { color: #94a3b8; font-size: 0.85rem; margin-bottom: 2rem; }
-    .card {
-      background: #1e2432; border: 1px solid #2d3748;
-      border-radius: 12px; padding: 1.5rem; width: 100%; max-width: 640px;
-      margin-bottom: 1.25rem;
-    }
-    .card h2 { font-size: 1rem; font-weight: 600; margin-bottom: 0.4rem; display: flex; align-items: center; gap: 0.5rem; }
-    .badge {
-      font-size: 0.72rem; padding: 2px 8px; border-radius: 99px;
-      background: #1a2744; color: #60a5fa; border: 1px solid #2563eb;
-    }
-    .badge.ok { background: #052e16; color: #4ade80; border-color: #16a34a; }
-    .hint { color: #64748b; font-size: 0.8rem; margin-bottom: 0.75rem; line-height: 1.5; }
-    .hint code {
-      background: #0f1117; border: 1px solid #2d3748;
-      padding: 1px 6px; border-radius: 4px; font-size: 0.78rem; color: #a78bfa;
-    }
-    textarea {
-      width: 100%; height: 140px; background: #0f1117;
-      border: 1px solid #2d3748; border-radius: 8px;
-      color: #e2e8f0; font-family: 'JetBrains Mono', monospace; font-size: 0.78rem;
-      padding: 0.6rem; resize: vertical; outline: none;
-    }
-    textarea:focus { border-color: #4f46e5; }
-    button {
-      margin-top: 0.75rem; padding: 0.5rem 1.25rem;
-      background: #4f46e5; color: #fff; border: none; border-radius: 8px;
-      font-size: 0.875rem; font-weight: 500; cursor: pointer;
-    }
-    button:hover { background: #4338ca; }
-    .msg { margin-top: 0.6rem; font-size: 0.8rem; min-height: 1.2em; }
-    .msg.ok  { color: #4ade80; }
-    .msg.err { color: #f87171; }
-    .status-row { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem; }
-    .divider { border: none; border-top: 1px solid #2d3748; margin: 1.5rem 0; }
-    footer { color: #475569; font-size: 0.75rem; margin-top: 1rem; }
-  </style>
-</head>
-<body>
-  <h1>vibe-kanban · AI credentials</h1>
-  <p class="sub">Paste your local credentials files to authenticate the HOST container.</p>
+function distFileFor(urlPath) {
+  const pathname = decodeURIComponent((urlPath || "/").split("?")[0]);
+  const requestedPath = pathname === "/" ? "/index.html" : pathname;
+  const fullPath = path.resolve(DIST_DIR, `.${requestedPath}`);
 
-  <!-- Claude -->
-  <div class="card">
-    <h2>
-      Claude Code (Anthropic)
-      <span class="badge" id="claude-badge">loading…</span>
-    </h2>
-    <div class="hint">
-      On your <strong>local Mac</strong>, run:<br>
-      <code>security find-generic-password -s "Claude Code-credentials" -w</code><br>
-      then paste the output below.
-    </div>
-    <div class="status-row">
-      <small id="claude-status" style="color:#64748b">checking…</small>
-    </div>
-    <textarea id="claude-ta" placeholder='{"claudeAiOauth":{"accessToken":"sk-ant-oat01-...","refreshToken":"sk-ant-ort01-...","expiresAt":...}}'></textarea>
-    <br>
-    <button onclick="save('claude')">Save Claude credentials</button>
-    <div class="msg" id="claude-msg"></div>
-  </div>
+  if (fullPath !== DIST_DIR && !fullPath.startsWith(`${DIST_DIR}${path.sep}`)) {
+    return null;
+  }
 
-  <!-- Codex -->
-  <div class="card">
-    <h2>
-      Codex (OpenAI)
-      <span class="badge" id="codex-badge">loading…</span>
-    </h2>
-    <div class="hint">
-      On your <strong>local machine</strong>, run:<br>
-      <code>cat ~/.codex/auth.json</code><br>
-      then paste the output below.  Alternatively set
-      <code>OPENAI_API_KEY</code> in <code>.env</code>.
-    </div>
-    <div class="status-row">
-      <small id="codex-status" style="color:#64748b">checking…</small>
-    </div>
-    <textarea id="codex-ta" placeholder='{"token":"sk-...","...":""}'></textarea>
-    <br>
-    <button onclick="save('codex')">Save Codex credentials</button>
-    <div class="msg" id="codex-msg"></div>
-  </div>
+  if (fs.existsSync(fullPath) && fs.statSync(fullPath).isFile()) {
+    return fullPath;
+  }
 
-  <footer>Accessible only on 127.0.0.1 — do not expose this port publicly.</footer>
+  if (!path.extname(requestedPath)) {
+    const indexPath = path.join(DIST_DIR, "index.html");
+    if (fs.existsSync(indexPath) && fs.statSync(indexPath).isFile()) {
+      return indexPath;
+    }
+  }
 
-  <script>
-    async function loadStatus() {
-      const res = await fetch('/status').then(r => r.json()).catch(() => ({}));
-      for (const tool of ['claude', 'codex']) {
-        const s = res[tool] || 'unknown';
-        const isOk = s.startsWith('saved');
-        document.getElementById(tool + '-status').textContent = s;
-        const badge = document.getElementById(tool + '-badge');
-        badge.textContent = isOk ? 'saved ✓' : 'not set';
-        badge.className = 'badge' + (isOk ? ' ok' : '');
+  return null;
+}
+
+function serveStatic(res, filePath, method = "GET") {
+  res.writeHead(200, {
+    "Cache-Control": path.extname(filePath) === ".html" ? "no-cache" : "public, max-age=31536000, immutable",
+    "Content-Type": contentTypeFor(filePath),
+  });
+
+  if (method === "HEAD") {
+    return res.end();
+  }
+
+  fs.createReadStream(filePath)
+    .on("error", (err) => {
+      console.error("[auth-helper]", err);
+      if (!res.headersSent) {
+        json(res, 500, { error: String(err) });
+      } else {
+        res.destroy(err);
       }
-    }
-
-    async function save(tool) {
-      const ta  = document.getElementById(tool + '-ta');
-      const msg = document.getElementById(tool + '-msg');
-      const raw = ta.value.trim();
-      if (!raw) { msg.className = 'msg err'; msg.textContent = 'Nothing to save.'; return; }
-
-      // Validate JSON
-      try { JSON.parse(raw); } catch(e) {
-        msg.className = 'msg err';
-        msg.textContent = 'Invalid JSON: ' + e.message;
-        return;
-      }
-
-      msg.className = 'msg'; msg.textContent = 'Saving…';
-      try {
-        const res = await fetch('/save', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ tool, credentials: raw }),
-        });
-        const data = await res.json();
-        if (res.ok) {
-          msg.className = 'msg ok';
-          msg.textContent = '✓ ' + data.message;
-          ta.value = '';
-          loadStatus();
-        } else {
-          msg.className = 'msg err';
-          msg.textContent = data.error || 'Server error';
-        }
-      } catch(e) {
-        msg.className = 'msg err';
-        msg.textContent = 'Network error: ' + e.message;
-      }
-    }
-
-    loadStatus();
-  </script>
-</body>
-</html>`;
+    })
+    .pipe(res);
+}
 
 // ── request handler ───────────────────────────────────────────────────────────
 
 const server = http.createServer(async (req, res) => {
   try {
-    // GET /
-    if (req.method === "GET" && req.url === "/") {
-      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-      return res.end(HTML);
-    }
-
     // GET /status
     if (req.method === "GET" && req.url === "/status") {
       return json(res, 200, {
@@ -262,6 +161,13 @@ const server = http.createServer(async (req, res) => {
       return json(res, 200, {
         message: `${tool} credentials saved successfully.`,
       });
+    }
+
+    if (["GET", "HEAD"].includes(req.method || "")) {
+      const staticFile = distFileFor(req.url);
+      if (staticFile) {
+        return serveStatic(res, staticFile, req.method);
+      }
     }
 
     res.writeHead(404);

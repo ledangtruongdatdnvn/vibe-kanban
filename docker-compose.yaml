@@ -93,8 +93,8 @@ services:
   # then open http://localhost:3005 in your local browser.
   auth-helper:
     build:
-      context: services/auth-helper
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/auth-helper/Dockerfile
     restart: unless-stopped
     environment:
       CLAUDE_CREDS_DIR: /creds/claude
