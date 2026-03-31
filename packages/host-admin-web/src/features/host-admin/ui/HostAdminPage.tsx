@@ -83,6 +83,33 @@ type CleanupSummary = {
   repo_errors: string[];
 };
 
+type WorkspaceUsageRepo = {
+  repo_id: string;
+  repo_name: string;
+  worktree_path: string;
+  bytes: number;
+  exists: boolean;
+  error: string | null;
+};
+
+type WorkspaceUsageItem = {
+  workspace_id: string;
+  workspace_name: string | null;
+  branch: string;
+  workspace_dir: string | null;
+  total_bytes: number;
+  exists: boolean;
+  error: string | null;
+  repo_worktrees: WorkspaceUsageRepo[];
+};
+
+type WorkspaceUsageSummary = {
+  total_bytes: number;
+  workspace_count: number;
+  existing_workspace_count: number;
+  items: WorkspaceUsageItem[];
+};
+
 type ToolConfig = {
   command: string;
   description: string;
@@ -182,6 +209,24 @@ function formatDate(value: string) {
   } catch {
     return value;
   }
+}
+
+function formatBytes(bytes: number) {
+  if (!Number.isFinite(bytes) || bytes <= 0) {
+    return "0 B";
+  }
+
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  let value = bytes;
+  let unitIndex = 0;
+
+  while (value >= 1024 && unitIndex < units.length - 1) {
+    value /= 1024;
+    unitIndex += 1;
+  }
+
+  const fractionDigits = value >= 100 || unitIndex === 0 ? 0 : 1;
+  return `${value.toFixed(fractionDigits)} ${units[unitIndex]}`;
 }
 
 function OverviewCard({
@@ -331,6 +376,10 @@ async function fetchWorkspaces() {
   return requestEnvelope<Workspace[]>("/api/workspaces");
 }
 
+async function fetchWorkspaceUsage() {
+  return requestEnvelope<WorkspaceUsageSummary>("/api/workspace-usage");
+}
+
 async function deleteWorkspace(workspaceId: string, deleteBranches: boolean) {
   return requestEnvelopeAction(
     `/api/workspaces/${workspaceId}${
@@ -394,6 +443,12 @@ export function HostAdminPage() {
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [workspacesLoading, setWorkspacesLoading] = useState(false);
   const [workspaceMessage, setWorkspaceMessage] = useState<ToolMessage>(null);
+  const [workspaceUsage, setWorkspaceUsage] =
+    useState<WorkspaceUsageSummary | null>(null);
+  const [workspaceUsageLoading, setWorkspaceUsageLoading] = useState(false);
+  const [workspaceUsageError, setWorkspaceUsageError] = useState<string | null>(
+    null,
+  );
   const [workspaceDeleteBranch, setWorkspaceDeleteBranch] = useState<
     Record<string, boolean>
   >({});
@@ -427,6 +482,13 @@ export function HostAdminPage() {
   const savedCredentialsCount = useMemo(
     () => TOOL_ORDER.filter((tool) => isSavedStatus(statusByTool[tool])).length,
     [statusByTool],
+  );
+  const workspaceUsageById = useMemo(
+    () =>
+      new Map(
+        (workspaceUsage?.items ?? []).map((item) => [item.workspace_id, item]),
+      ),
+    [workspaceUsage],
   );
   const localBranchCount = useMemo(
     () => branches.filter((branch) => !branch.is_remote).length,
@@ -467,6 +529,7 @@ export function HostAdminPage() {
     void Promise.all([
       refreshCredentialStatus(),
       refreshWorkspaces(),
+      refreshWorkspaceUsage(),
       refreshRepos(),
     ]);
   }, [session?.authenticated]);
@@ -516,6 +579,23 @@ export function HostAdminPage() {
       });
     } finally {
       setWorkspacesLoading(false);
+    }
+  };
+
+  const refreshWorkspaceUsage = async () => {
+    setWorkspaceUsageLoading(true);
+    try {
+      const { data } = await fetchWorkspaceUsage();
+      setWorkspaceUsage(data);
+      setWorkspaceUsageError(null);
+    } catch (error) {
+      setWorkspaceUsageError(
+        error instanceof Error
+          ? error.message
+          : "Failed to load workspace usage.",
+      );
+    } finally {
+      setWorkspaceUsageLoading(false);
     }
   };
 
@@ -620,6 +700,8 @@ export function HostAdminPage() {
       configured: session?.configured ?? true,
     });
     setWorkspaces([]);
+    setWorkspaceUsage(null);
+    setWorkspaceUsageError(null);
     setRepos([]);
     setBranches([]);
   };
@@ -729,6 +811,7 @@ export function HostAdminPage() {
         text: `Workspace "${workspaceLabel}" queued for deletion.`,
       });
       await refreshWorkspaces();
+      await refreshWorkspaceUsage();
       if (deleteBranches && selectedRepoId) {
         await refreshBranches(selectedRepoId);
       }
@@ -798,6 +881,7 @@ export function HostAdminPage() {
         text: `Checked ${data.repos_checked} repo(s), pruned ${data.repos_pruned}.${warnings}`,
       });
       await refreshWorkspaces();
+      await refreshWorkspaceUsage();
       if (selectedRepoId) {
         await refreshBranches(selectedRepoId);
       }
@@ -833,6 +917,7 @@ export function HostAdminPage() {
       });
       await refreshCredentialStatus();
       await refreshWorkspaces();
+      await refreshWorkspaceUsage();
       await refreshRepos();
     } catch (error) {
       setCleanupMessage({
@@ -984,9 +1069,17 @@ export function HostAdminPage() {
                 detail="Claude and Codex volumes"
               />
               <OverviewCard
-                label="Tracked workspaces"
-                value={String(workspaces.length)}
-                detail="Current host workspace records"
+                label="Worktree disk"
+                value={
+                  workspaceUsageLoading && !workspaceUsage
+                    ? "Loading…"
+                    : formatBytes(workspaceUsage?.total_bytes ?? 0)
+                }
+                detail={
+                  workspaceUsage
+                    ? `${workspaceUsage.existing_workspace_count}/${workspaceUsage.workspace_count} workspace dirs present`
+                    : `${workspaces.length} tracked workspace records`
+                }
               />
               <OverviewCard
                 label="Registered repos"
@@ -1197,10 +1290,21 @@ export function HostAdminPage() {
                     </Alert>
                   )}
 
+                  {workspaceUsageError && (
+                    <Alert variant="destructive">
+                      <AlertDescription>{workspaceUsageError}</AlertDescription>
+                    </Alert>
+                  )}
+
                   <div className="flex justify-end">
                     <Button
                       variant="outline"
-                      onClick={() => void refreshWorkspaces()}
+                      onClick={() =>
+                        void Promise.all([
+                          refreshWorkspaces(),
+                          refreshWorkspaceUsage(),
+                        ])
+                      }
                     >
                       Refresh
                     </Button>
@@ -1213,6 +1317,7 @@ export function HostAdminPage() {
                           <TableHeaderCell>Name</TableHeaderCell>
                           <TableHeaderCell>Branch</TableHeaderCell>
                           <TableHeaderCell>State</TableHeaderCell>
+                          <TableHeaderCell>Usage</TableHeaderCell>
                           <TableHeaderCell>Delete branch</TableHeaderCell>
                           <TableHeaderCell className="text-right">
                             Action
@@ -1220,86 +1325,147 @@ export function HostAdminPage() {
                         </TableRow>
                       </TableHead>
                       <TableBody>
-                        {workspacesLoading && <TableLoading colSpan={5} />}
-                        {!workspacesLoading && workspaces.length === 0 && (
-                          <TableEmpty colSpan={5}>
-                            No workspaces found.
-                          </TableEmpty>
+                        {(workspacesLoading || workspaceUsageLoading) && (
+                          <TableLoading colSpan={6} />
                         )}
                         {!workspacesLoading &&
-                          workspaces.map((workspace) => (
-                            <TableRow key={workspace.id}>
-                              <TableCell>
-                                <div className="flex flex-col gap-[0.2rem]">
-                                  <span className="font-medium text-high">
-                                    {workspace.name || workspace.branch}
-                                  </span>
-                                  <span className="text-xs text-low">
-                                    {workspace.id}
-                                  </span>
-                                </div>
-                              </TableCell>
-                              <TableCell>
-                                <code className="text-xs">
-                                  {workspace.branch}
-                                </code>
-                              </TableCell>
-                              <TableCell>
-                                <div className="flex flex-wrap gap-half">
-                                  {workspace.archived && (
-                                    <Badge variant="outline">archived</Badge>
-                                  )}
-                                  {workspace.pinned && (
-                                    <Badge variant="outline">pinned</Badge>
-                                  )}
-                                  {workspace.worktree_deleted && (
-                                    <Badge variant="outline">
-                                      worktree deleted
-                                    </Badge>
-                                  )}
-                                  {!workspace.archived &&
-                                    !workspace.worktree_deleted && (
-                                      <Badge variant="outline">active</Badge>
+                          !workspaceUsageLoading &&
+                          workspaces.length === 0 && (
+                            <TableEmpty colSpan={6}>
+                              No workspaces found.
+                            </TableEmpty>
+                          )}
+                        {!workspacesLoading &&
+                          !workspaceUsageLoading &&
+                          workspaces.map((workspace) => {
+                            const usage = workspaceUsageById.get(workspace.id);
+                            const existingRepoWorktrees =
+                              usage?.repo_worktrees.filter(
+                                (repo) => repo.exists,
+                              ) ?? [];
+
+                            return (
+                              <TableRow key={workspace.id}>
+                                <TableCell>
+                                  <div className="flex flex-col gap-[0.2rem]">
+                                    <span className="font-medium text-high">
+                                      {workspace.name || workspace.branch}
+                                    </span>
+                                    <span className="text-xs text-low">
+                                      {workspace.id}
+                                    </span>
+                                    {usage?.workspace_dir && (
+                                      <span className="truncate text-xs text-low">
+                                        {usage.workspace_dir}
+                                      </span>
                                     )}
-                                </div>
-                              </TableCell>
-                              <TableCell>
-                                <div className="flex items-center gap-half">
-                                  <Checkbox
-                                    checked={
-                                      workspaceDeleteBranch[workspace.id] ??
-                                      false
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <code className="text-xs">
+                                    {workspace.branch}
+                                  </code>
+                                </TableCell>
+                                <TableCell>
+                                  <div className="flex flex-wrap gap-half">
+                                    {workspace.archived && (
+                                      <Badge variant="outline">archived</Badge>
+                                    )}
+                                    {workspace.pinned && (
+                                      <Badge variant="outline">pinned</Badge>
+                                    )}
+                                    {workspace.worktree_deleted && (
+                                      <Badge variant="outline">
+                                        worktree deleted
+                                      </Badge>
+                                    )}
+                                    {!workspace.archived &&
+                                      !workspace.worktree_deleted && (
+                                        <Badge variant="outline">active</Badge>
+                                      )}
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  {!usage ? (
+                                    <span className="text-sm text-low">—</span>
+                                  ) : (
+                                    <div className="flex flex-col gap-[0.2rem]">
+                                      <span className="font-medium text-high">
+                                        {formatBytes(usage.total_bytes)}
+                                      </span>
+                                      <span className="text-xs text-low">
+                                        {usage.exists
+                                          ? `${existingRepoWorktrees.length}/${usage.repo_worktrees.length} repo worktrees present`
+                                          : "workspace dir missing"}
+                                      </span>
+                                      {usage.repo_worktrees.length > 0 && (
+                                        <div className="mt-[0.15rem] flex flex-col gap-[0.15rem]">
+                                          {usage.repo_worktrees.map((repo) => (
+                                            <span
+                                              key={repo.repo_id}
+                                              className="text-xs text-low"
+                                            >
+                                              <span className="font-medium text-high">
+                                                {repo.repo_name}
+                                              </span>{" "}
+                                              {repo.exists
+                                                ? formatBytes(repo.bytes)
+                                                : "missing"}
+                                              {repo.error
+                                                ? ` (${repo.error})`
+                                                : ""}
+                                            </span>
+                                          ))}
+                                        </div>
+                                      )}
+                                      {usage.error && (
+                                        <span className="text-xs text-danger">
+                                          {usage.error}
+                                        </span>
+                                      )}
+                                    </div>
+                                  )}
+                                </TableCell>
+                                <TableCell>
+                                  <div className="flex items-center gap-half">
+                                    <Checkbox
+                                      checked={
+                                        workspaceDeleteBranch[workspace.id] ??
+                                        false
+                                      }
+                                      onCheckedChange={(checked) =>
+                                        setWorkspaceDeleteBranch(
+                                          (previous) => ({
+                                            ...previous,
+                                            [workspace.id]: checked,
+                                          }),
+                                        )
+                                      }
+                                    />
+                                    <span className="text-sm text-low">
+                                      also delete branch
+                                    </span>
+                                  </div>
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  <Button
+                                    variant="destructive"
+                                    size="sm"
+                                    onClick={() =>
+                                      void handleDeleteWorkspace(workspace)
                                     }
-                                    onCheckedChange={(checked) =>
-                                      setWorkspaceDeleteBranch((previous) => ({
-                                        ...previous,
-                                        [workspace.id]: checked,
-                                      }))
+                                    disabled={
+                                      deletingWorkspaceId === workspace.id
                                     }
-                                  />
-                                  <span className="text-sm text-low">
-                                    also delete branch
-                                  </span>
-                                </div>
-                              </TableCell>
-                              <TableCell className="text-right">
-                                <Button
-                                  variant="destructive"
-                                  size="sm"
-                                  onClick={() =>
-                                    void handleDeleteWorkspace(workspace)
-                                  }
-                                  disabled={
-                                    deletingWorkspaceId === workspace.id
-                                  }
-                                >
-                                  {deletingWorkspaceId === workspace.id
-                                    ? "Deleting…"
-                                    : "Delete"}
-                                </Button>
-                              </TableCell>
-                            </TableRow>
-                          ))}
+                                  >
+                                    {deletingWorkspaceId === workspace.id
+                                      ? "Deleting…"
+                                      : "Delete"}
+                                  </Button>
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
                       </TableBody>
                     </Table>
                   </div>

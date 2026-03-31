@@ -516,6 +516,21 @@ async function handleApi(req, res, url) {
     return;
   }
 
+  if (req.method === "GET" && url.pathname === "/api/workspace-usage") {
+    try {
+      sendProxyResponse(
+        res,
+        await proxyToHost("GET", "/api/admin/workspace-usage"),
+      );
+    } catch (error) {
+      json(res, 502, {
+        error:
+          error instanceof Error ? error.message : "Host service unavailable.",
+      });
+    }
+    return;
+  }
+
   if (req.method === "GET" && url.pathname === "/api/workspaces") {
     try {
       sendProxyResponse(res, await proxyToHost("GET", "/api/workspaces"));
