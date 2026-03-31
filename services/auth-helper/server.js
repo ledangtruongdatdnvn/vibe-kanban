@@ -6,15 +6,15 @@
  *
  * No npm dependencies — uses Node.js built-ins only.
  */
-'use strict';
+"use strict";
 
-const http = require('http');
-const fs = require('fs');
-const path = require('path');
+const http = require("http");
+const fs = require("fs");
+const path = require("path");
 
-const PORT = parseInt(process.env.PORT || '3005', 10);
-const CLAUDE_DIR = process.env.CLAUDE_CREDS_DIR || '/creds/claude';
-const CODEX_DIR  = process.env.CODEX_CREDS_DIR  || '/creds/codex';
+const PORT = parseInt(process.env.PORT || "3005", 10);
+const CLAUDE_DIR = process.env.CLAUDE_CREDS_DIR || "/creds/claude";
+const CODEX_DIR = process.env.CODEX_CREDS_DIR || "/creds/codex";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -25,25 +25,27 @@ function ensureDir(dir) {
 function readBody(req) {
   return new Promise((resolve, reject) => {
     const chunks = [];
-    req.on('data', c => chunks.push(c));
-    req.on('end',  () => resolve(Buffer.concat(chunks).toString('utf8')));
-    req.on('error', reject);
+    req.on("data", (c) => chunks.push(c));
+    req.on("end", () => resolve(Buffer.concat(chunks).toString("utf8")));
+    req.on("error", reject);
   });
 }
 
 function json(res, status, body) {
   const payload = JSON.stringify(body);
-  res.writeHead(status, { 'Content-Type': 'application/json' });
+  res.writeHead(status, { "Content-Type": "application/json" });
   res.end(payload);
 }
 
 function statusFor(dir, filename) {
   const full = path.join(dir, filename);
-  if (!fs.existsSync(full)) return 'not set';
+  if (!fs.existsSync(full)) return "not set";
   try {
     const stat = fs.statSync(full);
     return `saved (${(stat.size / 1024).toFixed(1)} KB, ${stat.mtime.toLocaleDateString()})`;
-  } catch { return 'error'; }
+  } catch {
+    return "error";
+  }
 }
 
 // ── HTML page ─────────────────────────────────────────────────────────────────
@@ -208,57 +210,69 @@ const HTML = String.raw`<!DOCTYPE html>
 const server = http.createServer(async (req, res) => {
   try {
     // GET /
-    if (req.method === 'GET' && req.url === '/') {
-      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+    if (req.method === "GET" && req.url === "/") {
+      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
       return res.end(HTML);
     }
 
     // GET /status
-    if (req.method === 'GET' && req.url === '/status') {
+    if (req.method === "GET" && req.url === "/status") {
       return json(res, 200, {
-        claude: statusFor(CLAUDE_DIR, '.credentials.json'),
-        codex:  statusFor(CODEX_DIR,  'auth.json'),
+        claude: statusFor(CLAUDE_DIR, ".credentials.json"),
+        codex: statusFor(CODEX_DIR, "auth.json"),
       });
     }
 
     // POST /save
-    if (req.method === 'POST' && req.url === '/save') {
+    if (req.method === "POST" && req.url === "/save") {
       const body = await readBody(req);
       let parsed;
-      try { parsed = JSON.parse(body); } catch {
-        return json(res, 400, { error: 'Invalid JSON body' });
+      try {
+        parsed = JSON.parse(body);
+      } catch {
+        return json(res, 400, { error: "Invalid JSON body" });
       }
 
       const { tool, credentials } = parsed;
-      if (!['claude', 'codex'].includes(tool)) {
-        return json(res, 400, { error: 'Unknown tool' });
+      if (!["claude", "codex"].includes(tool)) {
+        return json(res, 400, { error: "Unknown tool" });
       }
 
       // Validate that credentials is valid JSON
       let credObj;
-      try { credObj = JSON.parse(credentials); } catch {
-        return json(res, 400, { error: 'credentials must be valid JSON' });
+      try {
+        credObj = JSON.parse(credentials);
+      } catch {
+        return json(res, 400, { error: "credentials must be valid JSON" });
       }
 
-      const dir      = tool === 'claude' ? CLAUDE_DIR : CODEX_DIR;
-      const filename = tool === 'claude' ? '.credentials.json' : 'auth.json';
+      const dir = tool === "claude" ? CLAUDE_DIR : CODEX_DIR;
+      const filename = tool === "claude" ? ".credentials.json" : "auth.json";
       ensureDir(dir);
       // mode 0o644 — auth-helper runs as root; HOST container's node user needs read access
-      fs.writeFileSync(path.join(dir, filename), JSON.stringify(credObj, null, 2), { mode: 0o644 });
+      fs.writeFileSync(
+        path.join(dir, filename),
+        JSON.stringify(credObj, null, 2),
+        { mode: 0o644 },
+      );
 
-      console.log(`[auth-helper] saved ${tool} credentials to ${dir}/${filename}`);
-      return json(res, 200, { message: `${tool} credentials saved successfully.` });
+      console.log(
+        `[auth-helper] saved ${tool} credentials to ${dir}/${filename}`,
+      );
+      return json(res, 200, {
+        message: `${tool} credentials saved successfully.`,
+      });
     }
 
     res.writeHead(404);
-    res.end('Not found');
+    res.end("Not found");
   } catch (err) {
-    console.error('[auth-helper]', err);
+    console.error("[auth-helper]", err);
     json(res, 500, { error: String(err) });
   }
 });
 
-server.listen(PORT, '0.0.0.0', () => {
+server.listen(PORT, "0.0.0.0", () => {
   console.log(`[auth-helper] listening on http://0.0.0.0:${PORT}`);
   console.log(`  Claude creds dir : ${CLAUDE_DIR}`);
   console.log(`  Codex  creds dir : ${CODEX_DIR}`);

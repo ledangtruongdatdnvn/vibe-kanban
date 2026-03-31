@@ -1,0 +1,1 @@
+rm -rf "$HOME/Library/Application Support/ai.bloop.vibe-kanban"
