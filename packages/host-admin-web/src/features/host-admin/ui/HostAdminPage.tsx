@@ -93,11 +93,36 @@ type ToolConfig = {
 };
 
 const TOOL_ORDER: Tool[] = ["claude", "codex"];
-const TABS: Array<{ id: Tab; label: string }> = [
-  { id: "credentials", label: "Credentials" },
-  { id: "workspaces", label: "Workspaces" },
-  { id: "branches", label: "Branches" },
-  { id: "cleanup", label: "Cleanup" },
+const TABS: Array<{
+  id: Tab;
+  label: string;
+  summary: string;
+  description: string;
+}> = [
+  {
+    id: "credentials",
+    label: "Credentials",
+    summary: "Claude and Codex access",
+    description: "Paste or clear saved subscription credentials.",
+  },
+  {
+    id: "workspaces",
+    label: "Workspaces",
+    summary: "Lifecycle-safe deletion",
+    description: "Delete workspaces through the normal host backend flow.",
+  },
+  {
+    id: "branches",
+    label: "Branches",
+    summary: "Local branch maintenance",
+    description: "Remove stale local branches without touching remotes.",
+  },
+  {
+    id: "cleanup",
+    label: "Cleanup",
+    summary: "Prune or wipe persisted state",
+    description: "Run safe orphan cleanup or wipe mounted host data.",
+  },
 ];
 
 const TOOL_CONFIG: Record<Tool, ToolConfig> = {
@@ -157,6 +182,26 @@ function formatDate(value: string) {
   } catch {
     return value;
   }
+}
+
+function OverviewCard({
+  label,
+  value,
+  detail,
+}: {
+  label: string;
+  value: string;
+  detail: string;
+}) {
+  return (
+    <div className="rounded-lg border border-border bg-primary/60 px-double py-base">
+      <div className="text-xs uppercase tracking-[0.12em] text-low">
+        {label}
+      </div>
+      <div className="mt-half text-xl font-semibold text-high">{value}</div>
+      <div className="mt-half text-sm text-low">{detail}</div>
+    </div>
+  );
 }
 
 async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
@@ -374,6 +419,18 @@ export function HostAdminPage() {
   const selectedRepo = useMemo(
     () => repos.find((repo) => repo.id === selectedRepoId) ?? null,
     [repos, selectedRepoId],
+  );
+  const activeTabMeta = useMemo(
+    () => TABS.find((tab) => tab.id === activeTab) ?? TABS[0],
+    [activeTab],
+  );
+  const savedCredentialsCount = useMemo(
+    () => TOOL_ORDER.filter((tool) => isSavedStatus(statusByTool[tool])).length,
+    [statusByTool],
+  );
+  const localBranchCount = useMemo(
+    () => branches.filter((branch) => !branch.is_remote).length,
+    [branches],
   );
 
   useEffect(() => {
@@ -891,464 +948,579 @@ export function HostAdminPage() {
 
   return (
     <main className="min-h-screen bg-primary px-double py-double sm:px-[2rem] sm:py-[2.5rem]">
-      <div className="mx-auto flex w-full max-w-[72rem] flex-col gap-double">
-        <header className="flex flex-col gap-double lg:flex-row lg:items-start lg:justify-between">
-          <div className="flex flex-col gap-half">
-            <div className="flex items-center gap-half">
-              <h1 className="text-xl font-semibold text-high">Host Admin</h1>
-              <Badge variant="outline">armed only when you start it</Badge>
+      <div className="mx-auto flex w-full max-w-[76rem] flex-col gap-double">
+        <Card className="overflow-hidden border border-border bg-panel/95 backdrop-blur-sm">
+          <CardContent className="grid gap-double p-double lg:grid-cols-[minmax(0,1.45fr)_minmax(20rem,0.95fr)]">
+            <div className="flex flex-col gap-base">
+              <div className="flex flex-wrap items-center gap-half">
+                <h1 className="text-2xl font-semibold text-high">Host Admin</h1>
+                <Badge variant="outline">start when needed</Badge>
+                <Badge variant="outline">turn off when done</Badge>
+              </div>
+              <p className="max-w-[48rem] text-base leading-relaxed text-low">
+                Manage saved credentials, workspace lifecycle cleanup, and safe
+                branch deletion through the same host backend the app already
+                uses. This stays separate from the main product flow, but now
+                uses the same component language and panel rhythm as the rest of
+                the app.
+              </p>
+              <div className="flex flex-wrap gap-half text-sm text-low">
+                <span className="rounded-full border border-border px-half py-[0.2rem]">
+                  Shared-secret login
+                </span>
+                <span className="rounded-full border border-border px-half py-[0.2rem]">
+                  Cookie session
+                </span>
+                <span className="rounded-full border border-border px-half py-[0.2rem]">
+                  Proxy to host on safe actions
+                </span>
+              </div>
             </div>
-            <p className="max-w-[48rem] text-base text-low">
-              Manage saved credentials, workspace lifecycle cleanup, and safe
-              branch deletion through the same host backend the app already
-              uses.
-            </p>
-          </div>
 
-          <Button variant="outline" onClick={() => void handleLogout()}>
-            Log out
-          </Button>
-        </header>
+            <div className="grid gap-half sm:grid-cols-2">
+              <OverviewCard
+                label="Saved credentials"
+                value={`${savedCredentialsCount}/2`}
+                detail="Claude and Codex volumes"
+              />
+              <OverviewCard
+                label="Tracked workspaces"
+                value={String(workspaces.length)}
+                detail="Current host workspace records"
+              />
+              <OverviewCard
+                label="Registered repos"
+                value={String(repos.length)}
+                detail="Repos available for branch cleanup"
+              />
+              <OverviewCard
+                label="Visible local branches"
+                value={selectedRepoId ? String(localBranchCount) : "—"}
+                detail={
+                  selectedRepo
+                    ? selectedRepo.display_name || selectedRepo.name
+                    : "Select a repo in Branches"
+                }
+              />
+            </div>
+          </CardContent>
+        </Card>
 
-        <div className="flex flex-wrap gap-half">
-          {TABS.map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              className={cn(
-                "rounded-md border px-3 py-2 text-sm transition-colors",
-                activeTab === tab.id
-                  ? "border-foreground text-high"
-                  : "border-border text-low hover:text-high",
-              )}
-              onClick={() => setActiveTab(tab.id)}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
+        <div className="grid gap-double lg:grid-cols-[16rem_minmax(0,1fr)] lg:items-start">
+          <Card className="border border-border bg-panel/95 backdrop-blur-sm lg:sticky lg:top-double">
+            <CardHeader className="pb-base">
+              <CardTitle className="text-base">Sections</CardTitle>
+              <CardDescription>
+                Use the rail like the app settings and workspace side panels.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-half">
+              {TABS.map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  className={cn(
+                    "rounded-lg border px-base py-base text-left transition-colors",
+                    activeTab === tab.id
+                      ? "border-foreground bg-primary/70"
+                      : "border-border bg-transparent hover:bg-primary/40",
+                  )}
+                  onClick={() => setActiveTab(tab.id)}
+                >
+                  <div className="text-sm font-medium text-high">
+                    {tab.label}
+                  </div>
+                  <div className="mt-[0.15rem] text-xs text-low">
+                    {tab.summary}
+                  </div>
+                </button>
+              ))}
+            </CardContent>
+          </Card>
 
-        {activeTab === "credentials" && (
-          <div className="grid gap-double lg:grid-cols-2">
-            {TOOL_ORDER.map((tool) => {
-              const config = TOOL_CONFIG[tool];
-              const status = statusByTool[tool];
-              const message = messageByTool[tool];
-              const isSaving = savingByTool[tool];
-              const isClearing =
-                clearingCredentials === tool || clearingCredentials === "all";
-
-              return (
-                <Card key={tool} className="border border-border">
-                  <CardHeader className="gap-double">
-                    <div className="flex items-center justify-between gap-half">
-                      <CardTitle className="text-lg">{config.title}</CardTitle>
-                      <Badge
-                        variant={isSavedStatus(status) ? "default" : "outline"}
-                      >
-                        {statusBadgeText(status)}
-                      </Badge>
+          <div className="min-w-0 flex flex-col gap-double">
+            <Card className="border border-border bg-panel/95 backdrop-blur-sm">
+              <CardHeader className="gap-base border-b border-border/70">
+                <div className="flex flex-col gap-base lg:flex-row lg:items-start lg:justify-between">
+                  <div className="flex flex-col gap-half">
+                    <div className="flex items-center gap-half">
+                      <CardTitle className="text-xl text-high">
+                        {activeTabMeta.label}
+                      </CardTitle>
+                      <Badge variant="outline">{activeTabMeta.summary}</Badge>
                     </div>
-                    <CardDescription className="space-y-half">
-                      <p>{config.description}</p>
-                      <code className="block rounded border border-border px-half py-half text-xs">
-                        {config.command}
-                      </code>
-                      {config.hint && <p>{config.hint}</p>}
+                    <CardDescription className="max-w-[42rem] text-sm leading-relaxed">
+                      {activeTabMeta.description}
+                    </CardDescription>
+                  </div>
+
+                  <Button variant="outline" onClick={() => void handleLogout()}>
+                    Log out
+                  </Button>
+                </div>
+              </CardHeader>
+            </Card>
+
+            {activeTab === "credentials" && (
+              <div className="grid gap-double lg:grid-cols-2">
+                {TOOL_ORDER.map((tool) => {
+                  const config = TOOL_CONFIG[tool];
+                  const status = statusByTool[tool];
+                  const message = messageByTool[tool];
+                  const isSaving = savingByTool[tool];
+                  const isClearing =
+                    clearingCredentials === tool ||
+                    clearingCredentials === "all";
+
+                  return (
+                    <Card
+                      key={tool}
+                      className="border border-border bg-panel/80"
+                    >
+                      <CardHeader className="gap-double">
+                        <div className="flex items-center justify-between gap-half">
+                          <CardTitle className="text-lg">
+                            {config.title}
+                          </CardTitle>
+                          <Badge
+                            variant={
+                              isSavedStatus(status) ? "default" : "outline"
+                            }
+                          >
+                            {statusBadgeText(status)}
+                          </Badge>
+                        </div>
+                        <CardDescription className="space-y-half">
+                          <p>{config.description}</p>
+                          <code className="block rounded border border-border px-half py-half text-xs">
+                            {config.command}
+                          </code>
+                          {config.hint && <p>{config.hint}</p>}
+                        </CardDescription>
+                      </CardHeader>
+
+                      <CardContent className="flex flex-col gap-double">
+                        <div className="flex flex-col gap-half">
+                          <Label htmlFor={`credentials-${tool}`}>
+                            Credentials JSON
+                          </Label>
+                          <Textarea
+                            id={`credentials-${tool}`}
+                            rows={10}
+                            placeholder={config.placeholder}
+                            value={valueByTool[tool]}
+                            onChange={(event) =>
+                              setToolValue(tool, event.target.value)
+                            }
+                          />
+                        </div>
+
+                        {message && (
+                          <Alert
+                            variant={
+                              message.kind === "error"
+                                ? "destructive"
+                                : "success"
+                            }
+                          >
+                            <AlertDescription>{message.text}</AlertDescription>
+                          </Alert>
+                        )}
+
+                        <div className="flex flex-wrap gap-half">
+                          <Button
+                            onClick={() => void handleSave(tool)}
+                            disabled={isSaving}
+                          >
+                            {isSaving ? "Saving…" : config.saveLabel}
+                          </Button>
+                          <Button
+                            variant="outline"
+                            onClick={() => void handleClearCredentials(tool)}
+                            disabled={isClearing}
+                          >
+                            {isClearing ? "Clearing…" : `Clear ${tool}`}
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+
+                <Card className="border border-border bg-panel/80 lg:col-span-2">
+                  <CardHeader>
+                    <CardTitle className="text-lg">Credential notes</CardTitle>
+                    <CardDescription>
+                      Save only the credential file content itself. This service
+                      writes it into the mounted Docker volume so the host
+                      container can use subscription logins without interactive
+                      CLI auth.
                     </CardDescription>
                   </CardHeader>
-
-                  <CardContent className="flex flex-col gap-double">
-                    <div className="flex flex-col gap-half">
-                      <Label htmlFor={`credentials-${tool}`}>
-                        Credentials JSON
-                      </Label>
-                      <Textarea
-                        id={`credentials-${tool}`}
-                        rows={10}
-                        placeholder={config.placeholder}
-                        value={valueByTool[tool]}
-                        onChange={(event) =>
-                          setToolValue(tool, event.target.value)
-                        }
-                      />
-                    </div>
-
-                    {message && (
-                      <Alert
-                        variant={
-                          message.kind === "error" ? "destructive" : "success"
-                        }
-                      >
-                        <AlertDescription>{message.text}</AlertDescription>
-                      </Alert>
-                    )}
-
-                    <div className="flex flex-wrap gap-half">
-                      <Button
-                        onClick={() => void handleSave(tool)}
-                        disabled={isSaving}
-                      >
-                        {isSaving ? "Saving…" : config.saveLabel}
-                      </Button>
-                      <Button
-                        variant="outline"
-                        onClick={() => void handleClearCredentials(tool)}
-                        disabled={isClearing}
-                      >
-                        {isClearing ? "Clearing…" : `Clear ${tool}`}
-                      </Button>
-                    </div>
+                  <CardContent className="flex flex-wrap gap-half">
+                    <Button
+                      variant="destructive"
+                      onClick={() => void handleClearCredentials("all")}
+                      disabled={clearingCredentials === "all"}
+                    >
+                      {clearingCredentials === "all"
+                        ? "Clearing…"
+                        : "Clear all saved credentials"}
+                    </Button>
                   </CardContent>
                 </Card>
-              );
-            })}
-
-            <Card className="border border-border lg:col-span-2">
-              <CardHeader>
-                <CardTitle className="text-lg">Credential notes</CardTitle>
-                <CardDescription>
-                  Save only the credential file content itself. This service
-                  writes it into the mounted Docker volume so the host container
-                  can use subscription logins without interactive CLI auth.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="flex flex-wrap gap-half">
-                <Button
-                  variant="destructive"
-                  onClick={() => void handleClearCredentials("all")}
-                  disabled={clearingCredentials === "all"}
-                >
-                  {clearingCredentials === "all"
-                    ? "Clearing…"
-                    : "Clear all saved credentials"}
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
-        )}
-
-        {activeTab === "workspaces" && (
-          <Card className="border border-border">
-            <CardHeader>
-              <CardTitle className="text-lg">Workspaces</CardTitle>
-              <CardDescription>
-                Delete workspaces through the normal host lifecycle so database
-                state, background cleanup, and optional branch deletion stay in
-                sync.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-double">
-              {workspaceMessage && (
-                <Alert
-                  variant={
-                    workspaceMessage.kind === "error"
-                      ? "destructive"
-                      : "success"
-                  }
-                >
-                  <AlertDescription>{workspaceMessage.text}</AlertDescription>
-                </Alert>
-              )}
-
-              <div className="flex justify-end">
-                <Button
-                  variant="outline"
-                  onClick={() => void refreshWorkspaces()}
-                >
-                  Refresh
-                </Button>
               </div>
+            )}
 
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHead>
-                    <TableRow>
-                      <TableHeaderCell>Name</TableHeaderCell>
-                      <TableHeaderCell>Branch</TableHeaderCell>
-                      <TableHeaderCell>State</TableHeaderCell>
-                      <TableHeaderCell>Delete branch</TableHeaderCell>
-                      <TableHeaderCell className="text-right">
-                        Action
-                      </TableHeaderCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {workspacesLoading && <TableLoading colSpan={5} />}
-                    {!workspacesLoading && workspaces.length === 0 && (
-                      <TableEmpty colSpan={5}>No workspaces found.</TableEmpty>
-                    )}
-                    {!workspacesLoading &&
-                      workspaces.map((workspace) => (
-                        <TableRow key={workspace.id}>
-                          <TableCell>
-                            <div className="flex flex-col gap-[0.2rem]">
-                              <span className="font-medium text-high">
-                                {workspace.name || workspace.branch}
-                              </span>
-                              <span className="text-xs text-low">
-                                {workspace.id}
-                              </span>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <code className="text-xs">{workspace.branch}</code>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex flex-wrap gap-half">
-                              {workspace.archived && (
-                                <Badge variant="outline">archived</Badge>
-                              )}
-                              {workspace.pinned && (
-                                <Badge variant="outline">pinned</Badge>
-                              )}
-                              {workspace.worktree_deleted && (
-                                <Badge variant="outline">
-                                  worktree deleted
-                                </Badge>
-                              )}
-                              {!workspace.archived &&
-                                !workspace.worktree_deleted && (
-                                  <Badge variant="outline">active</Badge>
-                                )}
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-half">
-                              <Checkbox
-                                checked={
-                                  workspaceDeleteBranch[workspace.id] ?? false
-                                }
-                                onCheckedChange={(checked) =>
-                                  setWorkspaceDeleteBranch((previous) => ({
-                                    ...previous,
-                                    [workspace.id]: checked,
-                                  }))
-                                }
-                              />
-                              <span className="text-sm text-low">
-                                also delete branch
-                              </span>
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <Button
-                              variant="destructive"
-                              size="sm"
-                              onClick={() =>
-                                void handleDeleteWorkspace(workspace)
-                              }
-                              disabled={deletingWorkspaceId === workspace.id}
-                            >
-                              {deletingWorkspaceId === workspace.id
-                                ? "Deleting…"
-                                : "Delete"}
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                  </TableBody>
-                </Table>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {activeTab === "branches" && (
-          <Card className="border border-border">
-            <CardHeader>
-              <CardTitle className="text-lg">Branches</CardTitle>
-              <CardDescription>
-                Delete only local, non-current branches. Remote refs stay
-                visible for context but are not deletable in v1.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-double">
-              {branchesMessage && (
-                <Alert
-                  variant={
-                    branchesMessage.kind === "error" ? "destructive" : "success"
-                  }
-                >
-                  <AlertDescription>{branchesMessage.text}</AlertDescription>
-                </Alert>
-              )}
-
-              <div className="flex flex-col gap-half sm:max-w-[20rem]">
-                <Label htmlFor="repo-selector">Repository</Label>
-                <select
-                  id="repo-selector"
-                  className="h-10 rounded-md border border-border bg-transparent px-3 text-sm"
-                  value={selectedRepoId}
-                  onChange={(event) => setSelectedRepoId(event.target.value)}
-                  disabled={reposLoading || repos.length === 0}
-                >
-                  {repos.length === 0 && (
-                    <option value="">No repositories</option>
+            {activeTab === "workspaces" && (
+              <Card className="border border-border bg-panel/80">
+                <CardHeader>
+                  <CardTitle className="text-lg">Workspaces</CardTitle>
+                  <CardDescription>
+                    Delete workspaces through the normal host lifecycle so
+                    database state, background cleanup, and optional branch
+                    deletion stay in sync.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="flex flex-col gap-double">
+                  {workspaceMessage && (
+                    <Alert
+                      variant={
+                        workspaceMessage.kind === "error"
+                          ? "destructive"
+                          : "success"
+                      }
+                    >
+                      <AlertDescription>
+                        {workspaceMessage.text}
+                      </AlertDescription>
+                    </Alert>
                   )}
-                  {repos.map((repo) => (
-                    <option key={repo.id} value={repo.id}>
-                      {repo.display_name || repo.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
 
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHead>
-                    <TableRow>
-                      <TableHeaderCell>Branch</TableHeaderCell>
-                      <TableHeaderCell>Badges</TableHeaderCell>
-                      <TableHeaderCell>Last commit</TableHeaderCell>
-                      <TableHeaderCell className="text-right">
-                        Action
-                      </TableHeaderCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {(reposLoading || branchesLoading) && (
-                      <TableLoading colSpan={4} />
-                    )}
-                    {!reposLoading && !branchesLoading && !selectedRepoId && (
-                      <TableEmpty colSpan={4}>
-                        Select a repository to manage branches.
-                      </TableEmpty>
-                    )}
-                    {!reposLoading &&
-                      !branchesLoading &&
-                      selectedRepoId &&
-                      branches.length === 0 && (
-                        <TableEmpty colSpan={4}>No branches found.</TableEmpty>
-                      )}
-                    {!reposLoading &&
-                      !branchesLoading &&
-                      branches.map((branch) => {
-                        const cannotDelete =
-                          branch.is_current ||
-                          branch.is_remote ||
-                          deletingBranchName === branch.name;
+                  <div className="flex justify-end">
+                    <Button
+                      variant="outline"
+                      onClick={() => void refreshWorkspaces()}
+                    >
+                      Refresh
+                    </Button>
+                  </div>
 
-                        return (
-                          <TableRow key={branch.name}>
-                            <TableCell>
-                              <div className="flex flex-col gap-[0.2rem]">
-                                <span className="font-medium text-high">
-                                  {branch.name}
-                                </span>
-                                {selectedRepo && (
-                                  <span className="text-xs text-low">
-                                    {selectedRepo.display_name ||
-                                      selectedRepo.name}
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHead>
+                        <TableRow>
+                          <TableHeaderCell>Name</TableHeaderCell>
+                          <TableHeaderCell>Branch</TableHeaderCell>
+                          <TableHeaderCell>State</TableHeaderCell>
+                          <TableHeaderCell>Delete branch</TableHeaderCell>
+                          <TableHeaderCell className="text-right">
+                            Action
+                          </TableHeaderCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {workspacesLoading && <TableLoading colSpan={5} />}
+                        {!workspacesLoading && workspaces.length === 0 && (
+                          <TableEmpty colSpan={5}>
+                            No workspaces found.
+                          </TableEmpty>
+                        )}
+                        {!workspacesLoading &&
+                          workspaces.map((workspace) => (
+                            <TableRow key={workspace.id}>
+                              <TableCell>
+                                <div className="flex flex-col gap-[0.2rem]">
+                                  <span className="font-medium text-high">
+                                    {workspace.name || workspace.branch}
                                   </span>
-                                )}
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex flex-wrap gap-half">
-                                {branch.is_current && (
-                                  <Badge variant="outline">current</Badge>
-                                )}
-                                {branch.is_remote && (
-                                  <Badge variant="outline">remote</Badge>
-                                )}
-                                {!branch.is_current && !branch.is_remote && (
-                                  <Badge variant="outline">local</Badge>
-                                )}
-                              </div>
-                            </TableCell>
-                            <TableCell className="text-low">
-                              {formatDate(branch.last_commit_date)}
-                            </TableCell>
-                            <TableCell className="text-right">
-                              <Button
-                                variant="destructive"
-                                size="sm"
-                                disabled={cannotDelete}
-                                onClick={() => void handleDeleteBranch(branch)}
-                              >
-                                {deletingBranchName === branch.name
-                                  ? "Deleting…"
-                                  : "Delete"}
-                              </Button>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                  </TableBody>
-                </Table>
+                                  <span className="text-xs text-low">
+                                    {workspace.id}
+                                  </span>
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <code className="text-xs">
+                                  {workspace.branch}
+                                </code>
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex flex-wrap gap-half">
+                                  {workspace.archived && (
+                                    <Badge variant="outline">archived</Badge>
+                                  )}
+                                  {workspace.pinned && (
+                                    <Badge variant="outline">pinned</Badge>
+                                  )}
+                                  {workspace.worktree_deleted && (
+                                    <Badge variant="outline">
+                                      worktree deleted
+                                    </Badge>
+                                  )}
+                                  {!workspace.archived &&
+                                    !workspace.worktree_deleted && (
+                                      <Badge variant="outline">active</Badge>
+                                    )}
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex items-center gap-half">
+                                  <Checkbox
+                                    checked={
+                                      workspaceDeleteBranch[workspace.id] ??
+                                      false
+                                    }
+                                    onCheckedChange={(checked) =>
+                                      setWorkspaceDeleteBranch((previous) => ({
+                                        ...previous,
+                                        [workspace.id]: checked,
+                                      }))
+                                    }
+                                  />
+                                  <span className="text-sm text-low">
+                                    also delete branch
+                                  </span>
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <Button
+                                  variant="destructive"
+                                  size="sm"
+                                  onClick={() =>
+                                    void handleDeleteWorkspace(workspace)
+                                  }
+                                  disabled={
+                                    deletingWorkspaceId === workspace.id
+                                  }
+                                >
+                                  {deletingWorkspaceId === workspace.id
+                                    ? "Deleting…"
+                                    : "Delete"}
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {activeTab === "branches" && (
+              <Card className="border border-border bg-panel/80">
+                <CardHeader>
+                  <CardTitle className="text-lg">Branches</CardTitle>
+                  <CardDescription>
+                    Delete only local, non-current branches. Remote refs stay
+                    visible for context but are not deletable in v1.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="flex flex-col gap-double">
+                  {branchesMessage && (
+                    <Alert
+                      variant={
+                        branchesMessage.kind === "error"
+                          ? "destructive"
+                          : "success"
+                      }
+                    >
+                      <AlertDescription>
+                        {branchesMessage.text}
+                      </AlertDescription>
+                    </Alert>
+                  )}
+
+                  <div className="flex flex-col gap-half sm:max-w-[20rem]">
+                    <Label htmlFor="repo-selector">Repository</Label>
+                    <select
+                      id="repo-selector"
+                      className="h-10 rounded-md border border-border bg-transparent px-3 text-sm"
+                      value={selectedRepoId}
+                      onChange={(event) =>
+                        setSelectedRepoId(event.target.value)
+                      }
+                      disabled={reposLoading || repos.length === 0}
+                    >
+                      {repos.length === 0 && (
+                        <option value="">No repositories</option>
+                      )}
+                      {repos.map((repo) => (
+                        <option key={repo.id} value={repo.id}>
+                          {repo.display_name || repo.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHead>
+                        <TableRow>
+                          <TableHeaderCell>Branch</TableHeaderCell>
+                          <TableHeaderCell>Badges</TableHeaderCell>
+                          <TableHeaderCell>Last commit</TableHeaderCell>
+                          <TableHeaderCell className="text-right">
+                            Action
+                          </TableHeaderCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {(reposLoading || branchesLoading) && (
+                          <TableLoading colSpan={4} />
+                        )}
+                        {!reposLoading &&
+                          !branchesLoading &&
+                          !selectedRepoId && (
+                            <TableEmpty colSpan={4}>
+                              Select a repository to manage branches.
+                            </TableEmpty>
+                          )}
+                        {!reposLoading &&
+                          !branchesLoading &&
+                          selectedRepoId &&
+                          branches.length === 0 && (
+                            <TableEmpty colSpan={4}>
+                              No branches found.
+                            </TableEmpty>
+                          )}
+                        {!reposLoading &&
+                          !branchesLoading &&
+                          branches.map((branch) => {
+                            const cannotDelete =
+                              branch.is_current ||
+                              branch.is_remote ||
+                              deletingBranchName === branch.name;
+
+                            return (
+                              <TableRow key={branch.name}>
+                                <TableCell>
+                                  <div className="flex flex-col gap-[0.2rem]">
+                                    <span className="font-medium text-high">
+                                      {branch.name}
+                                    </span>
+                                    {selectedRepo && (
+                                      <span className="text-xs text-low">
+                                        {selectedRepo.display_name ||
+                                          selectedRepo.name}
+                                      </span>
+                                    )}
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <div className="flex flex-wrap gap-half">
+                                    {branch.is_current && (
+                                      <Badge variant="outline">current</Badge>
+                                    )}
+                                    {branch.is_remote && (
+                                      <Badge variant="outline">remote</Badge>
+                                    )}
+                                    {!branch.is_current &&
+                                      !branch.is_remote && (
+                                        <Badge variant="outline">local</Badge>
+                                      )}
+                                  </div>
+                                </TableCell>
+                                <TableCell className="text-low">
+                                  {formatDate(branch.last_commit_date)}
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  <Button
+                                    variant="destructive"
+                                    size="sm"
+                                    disabled={cannotDelete}
+                                    onClick={() =>
+                                      void handleDeleteBranch(branch)
+                                    }
+                                  >
+                                    {deletingBranchName === branch.name
+                                      ? "Deleting…"
+                                      : "Delete"}
+                                  </Button>
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {activeTab === "cleanup" && (
+              <div className="grid gap-double lg:grid-cols-2">
+                <Card className="border border-border bg-panel/80">
+                  <CardHeader>
+                    <CardTitle className="text-lg">
+                      Clean orphan worktrees
+                    </CardTitle>
+                    <CardDescription>
+                      Trigger orphan workspace cleanup immediately and run{" "}
+                      <code>git worktree prune</code> across registered repos.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="flex flex-col gap-double">
+                    <p className="text-sm text-low">
+                      This is the safe cleanup path. It should only remove
+                      orphaned worktree directories and stale Git worktree
+                      metadata.
+                    </p>
+                    <Button
+                      onClick={() => void handleCleanOrphans()}
+                      disabled={cleanupBusy !== null}
+                    >
+                      {cleanupBusy === "orphans"
+                        ? "Cleaning…"
+                        : "Clean orphan worktrees"}
+                    </Button>
+                  </CardContent>
+                </Card>
+
+                <Card className="border border-border bg-panel/80">
+                  <CardHeader>
+                    <CardTitle className="text-lg">
+                      Clean persisted host data
+                    </CardTitle>
+                    <CardDescription>
+                      Delete mounted host data plus saved Claude/Codex
+                      credentials.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="flex flex-col gap-double">
+                    <p className="text-sm text-low">
+                      This is stronger than orphan cleanup. It wipes the
+                      persisted host state and usually requires a host restart
+                      or redeploy before the stack is usable again.
+                    </p>
+                    <Button
+                      variant="destructive"
+                      onClick={() => void handleCleanData()}
+                      disabled={cleanupBusy !== null}
+                    >
+                      {cleanupBusy === "data"
+                        ? "Deleting…"
+                        : "Clean persisted host data"}
+                    </Button>
+                  </CardContent>
+                </Card>
+
+                {cleanupMessage && (
+                  <Alert
+                    className="lg:col-span-2"
+                    variant={
+                      cleanupMessage.kind === "error"
+                        ? "destructive"
+                        : "success"
+                    }
+                  >
+                    <AlertDescription>{cleanupMessage.text}</AlertDescription>
+                  </Alert>
+                )}
               </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {activeTab === "cleanup" && (
-          <div className="grid gap-double lg:grid-cols-2">
-            <Card className="border border-border">
-              <CardHeader>
-                <CardTitle className="text-lg">
-                  Clean orphan worktrees
-                </CardTitle>
-                <CardDescription>
-                  Trigger orphan workspace cleanup immediately and run{" "}
-                  <code>git worktree prune</code> across registered repos.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="flex flex-col gap-double">
-                <p className="text-sm text-low">
-                  This is the safe cleanup path. It should only remove orphaned
-                  worktree directories and stale Git worktree metadata.
-                </p>
-                <Button
-                  onClick={() => void handleCleanOrphans()}
-                  disabled={cleanupBusy !== null}
-                >
-                  {cleanupBusy === "orphans"
-                    ? "Cleaning…"
-                    : "Clean orphan worktrees"}
-                </Button>
-              </CardContent>
-            </Card>
-
-            <Card className="border border-border">
-              <CardHeader>
-                <CardTitle className="text-lg">
-                  Clean persisted host data
-                </CardTitle>
-                <CardDescription>
-                  Delete mounted host data plus saved Claude/Codex credentials.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="flex flex-col gap-double">
-                <p className="text-sm text-low">
-                  This is stronger than orphan cleanup. It wipes the persisted
-                  host state and usually requires a host restart or redeploy
-                  before the stack is usable again.
-                </p>
-                <Button
-                  variant="destructive"
-                  onClick={() => void handleCleanData()}
-                  disabled={cleanupBusy !== null}
-                >
-                  {cleanupBusy === "data"
-                    ? "Deleting…"
-                    : "Clean persisted host data"}
-                </Button>
-              </CardContent>
-            </Card>
-
-            {cleanupMessage && (
-              <Alert
-                className="lg:col-span-2"
-                variant={
-                  cleanupMessage.kind === "error" ? "destructive" : "success"
-                }
-              >
-                <AlertDescription>{cleanupMessage.text}</AlertDescription>
-              </Alert>
             )}
           </div>
-        )}
+        </div>
       </div>
     </main>
   );
