@@ -23,7 +23,7 @@ To view diff of a specific file: `git difftool upstream/main...main -- <file>`
 ├── local-remove-data.sh (new)
 ├── package.json (modified)
 ├── pnpm-lock.yaml (modified)
-├── production-remove-data.md (new)
+├── PRODUCTION-REMOVE-DATA.md (new)
 ├── update-changes-tree.sh (new)
 ├── crates
 │   ├── api-types
