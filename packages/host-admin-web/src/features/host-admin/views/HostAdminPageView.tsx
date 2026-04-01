@@ -36,6 +36,10 @@ import { HostAdminPageHeader } from "@host-admin/features/host-admin/ui/HostAdmi
 import { HostAdminSectionNav } from "@host-admin/features/host-admin/ui/HostAdminSectionNav";
 import { HostAdminShell } from "@host-admin/features/host-admin/ui/HostAdminShell";
 import {
+  HostAdminTerminalSection,
+  type HostAdminTerminalSectionProps,
+} from "@host-admin/features/host-admin/ui/HostAdminTerminalSection";
+import {
   HostAdminWorkspacesSection,
   type HostAdminWorkspacesSectionProps,
 } from "@host-admin/features/host-admin/ui/HostAdminWorkspacesSection";
@@ -58,6 +62,7 @@ type HostAdminPageViewProps = {
   credentialsSection: HostAdminCredentialsSectionProps;
   workspacesSection: HostAdminWorkspacesSectionProps;
   branchesSection: HostAdminBranchesSectionProps;
+  terminalSection: HostAdminTerminalSectionProps;
   cleanupSection: HostAdminCleanupSectionProps;
   onLoginSecretChange: (value: string) => void;
   onLogin: () => void;
@@ -100,6 +105,7 @@ export function HostAdminPageView({
   credentialsSection,
   workspacesSection,
   branchesSection,
+  terminalSection,
   cleanupSection,
   onLoginSecretChange,
   onLogin,
@@ -143,8 +149,8 @@ export function HostAdminPageView({
         <header className="flex flex-col gap-half">
           <h1 className="text-xl font-semibold text-high">Host Admin</h1>
           <p className="text-base text-low">
-            Temporary admin console for credentials, workspace cleanup, and
-            branch operations.
+            Temporary admin console for credentials, workspace cleanup, branch
+            maintenance, and repo shell access.
           </p>
         </header>
 
@@ -170,16 +176,17 @@ export function HostAdminPageView({
               <Badge variant="outline">turn off when done</Badge>
             </div>
             <p className="max-w-[48rem] text-base leading-relaxed text-low">
-              Manage saved credentials, workspace lifecycle cleanup, and safe
-              branch deletion through the same host backend the app already
-              uses. This stays separate from the main product flow, but now uses
-              the same component language and panel rhythm as the rest of the
-              app.
+              Manage saved credentials, workspace lifecycle cleanup, safe branch
+              deletion, and authenticated repo terminals through the same host
+              backend the app already uses. This stays separate from the main
+              product flow, but now uses the same component language and panel
+              rhythm as the rest of the app.
             </p>
             <div className="flex flex-wrap gap-half text-sm text-low">
               <Badge variant="secondary">Shared-secret login</Badge>
               <Badge variant="secondary">Cookie session</Badge>
               <Badge variant="secondary">Proxy to host on safe actions</Badge>
+              <Badge variant="secondary">Repo terminal passthrough</Badge>
             </div>
           </div>
 
@@ -257,6 +264,9 @@ export function HostAdminPageView({
           )}
           {activeTab === "branches" && (
             <HostAdminBranchesSection {...branchesSection} />
+          )}
+          {activeTab === "terminal" && (
+            <HostAdminTerminalSection {...terminalSection} />
           )}
           {activeTab === "cleanup" && (
             <HostAdminCleanupSection {...cleanupSection} />

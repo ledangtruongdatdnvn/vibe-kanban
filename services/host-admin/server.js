@@ -15,6 +15,7 @@ const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
 const http = require("http");
+const https = require("https");
 
 const PORT = parseInt(process.env.PORT || "3005", 10);
 const CLAUDE_DIR = process.env.CLAUDE_CREDS_DIR || "/creds/claude";
@@ -275,6 +276,174 @@ function requireAuth(req, res) {
   }
 
   return true;
+}
+
+function writeUpgradeError(socket, statusCode, message) {
+  const statusText =
+    {
+      401: "Unauthorized",
+      404: "Not Found",
+      502: "Bad Gateway",
+      503: "Service Unavailable",
+    }[statusCode] || "Error";
+  const body = JSON.stringify({ error: message });
+
+  socket.write(
+    `HTTP/1.1 ${statusCode} ${statusText}\r\n` +
+      "Connection: close\r\n" +
+      "Content-Type: application/json; charset=utf-8\r\n" +
+      `Content-Length: ${Buffer.byteLength(body)}\r\n` +
+      "\r\n" +
+      body,
+  );
+  socket.destroy();
+}
+
+function requireUpgradeAuth(req, socket) {
+  if (!HOST_ADMIN_SECRET) {
+    writeUpgradeError(socket, 503, "HOST_ADMIN_SECRET is not configured.");
+    return false;
+  }
+
+  if (!isAuthenticated(req)) {
+    writeUpgradeError(socket, 401, "Unauthorized");
+    return false;
+  }
+
+  return true;
+}
+
+function isRepoTerminalPath(pathname) {
+  return /^\/api\/repos\/[^/]+\/terminal\/ws$/.test(pathname);
+}
+
+function buildTerminalProxyHeaders(req, targetHost) {
+  return Object.fromEntries(
+    Object.entries({
+      host: targetHost,
+      connection: req.headers.connection || "Upgrade",
+      upgrade: req.headers.upgrade || "websocket",
+      origin: req.headers.origin,
+      pragma: req.headers.pragma,
+      "cache-control": req.headers["cache-control"],
+      "user-agent": req.headers["user-agent"],
+      "sec-websocket-key": req.headers["sec-websocket-key"],
+      "sec-websocket-version": req.headers["sec-websocket-version"],
+      "sec-websocket-protocol": req.headers["sec-websocket-protocol"],
+      "sec-websocket-extensions": req.headers["sec-websocket-extensions"],
+    }).filter(([, value]) => value != null),
+  );
+}
+
+function writeUpgradeResponse(socket, response, bodyBuffer = Buffer.alloc(0)) {
+  const statusCode = response.statusCode || 502;
+  const statusMessage = response.statusMessage || "Bad Gateway";
+  let head = `HTTP/1.1 ${statusCode} ${statusMessage}\r\n`;
+  const hasBufferedBody = bodyBuffer.length > 0;
+
+  if (response.rawHeaders.length > 0) {
+    for (let index = 0; index < response.rawHeaders.length; index += 2) {
+      const headerName = response.rawHeaders[index];
+      const lowerHeaderName = headerName.toLowerCase();
+
+      if (
+        hasBufferedBody &&
+        (lowerHeaderName === "transfer-encoding" ||
+          lowerHeaderName === "content-length")
+      ) {
+        continue;
+      }
+
+      head += `${headerName}: ${response.rawHeaders[index + 1]}\r\n`;
+    }
+  }
+
+  if (hasBufferedBody) {
+    head += `Content-Length: ${bodyBuffer.length}\r\n`;
+  }
+
+  if (!response.headers.connection) {
+    head += "Connection: close\r\n";
+  }
+
+  head += "\r\n";
+  socket.write(head);
+  if (bodyBuffer.length > 0) {
+    socket.write(bodyBuffer);
+  }
+}
+
+function handleTerminalUpgrade(req, socket, head, url) {
+  if (!isRepoTerminalPath(url.pathname)) {
+    writeUpgradeError(socket, 404, "Not found");
+    return;
+  }
+
+  if (!requireUpgradeAuth(req, socket)) {
+    return;
+  }
+
+  const baseUrl = new URL(HOST_ADMIN_BASE_URL);
+  const requestModule = baseUrl.protocol === "https:" ? https : http;
+  const targetPath = `${url.pathname.replace(
+    /^\/api\/repos\//,
+    "/api/admin/repos/",
+  )}${url.search}`;
+
+  const upstreamReq = requestModule.request({
+    protocol: baseUrl.protocol,
+    hostname: baseUrl.hostname,
+    port: baseUrl.port || (baseUrl.protocol === "https:" ? 443 : 80),
+    method: "GET",
+    path: targetPath,
+    headers: buildTerminalProxyHeaders(req, baseUrl.host),
+  });
+
+  upstreamReq.on("upgrade", (upstreamRes, upstreamSocket, upstreamHead) => {
+    writeUpgradeResponse(socket, upstreamRes);
+
+    if (upstreamHead.length > 0) {
+      socket.write(upstreamHead);
+    }
+
+    if (head.length > 0) {
+      upstreamSocket.write(head);
+    }
+
+    socket.on("error", () => {
+      upstreamSocket.destroy();
+    });
+    upstreamSocket.on("error", () => {
+      socket.destroy();
+    });
+
+    socket.pipe(upstreamSocket);
+    upstreamSocket.pipe(socket);
+  });
+
+  upstreamReq.on("response", (upstreamRes) => {
+    const chunks = [];
+    upstreamRes.on("data", (chunk) => {
+      chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+    });
+    upstreamRes.on("end", () => {
+      writeUpgradeResponse(socket, upstreamRes, Buffer.concat(chunks));
+      socket.destroy();
+    });
+  });
+
+  upstreamReq.on("error", (error) => {
+    console.error("[host-admin] terminal proxy error", error);
+    if (!socket.destroyed) {
+      writeUpgradeError(
+        socket,
+        502,
+        error instanceof Error ? error.message : "Host service unavailable.",
+      );
+    }
+  });
+
+  upstreamReq.end();
 }
 
 function deleteDirectoryContents(dir) {
@@ -663,6 +832,28 @@ const server = http.createServer(async (req, res) => {
     json(res, 500, {
       error: error instanceof Error ? error.message : String(error),
     });
+  }
+});
+
+server.on("upgrade", (req, socket, head) => {
+  try {
+    const url = new URL(req.url || "/", `http://${req.headers.host || "localhost"}`);
+
+    if (!url.pathname.startsWith("/api/")) {
+      writeUpgradeError(socket, 404, "Not found");
+      return;
+    }
+
+    handleTerminalUpgrade(req, socket, head, url);
+  } catch (error) {
+    console.error("[host-admin]", error);
+    if (!socket.destroyed) {
+      writeUpgradeError(
+        socket,
+        500,
+        error instanceof Error ? error.message : String(error),
+      );
+    }
   }
 });
 

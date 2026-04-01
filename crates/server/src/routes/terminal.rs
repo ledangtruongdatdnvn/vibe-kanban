@@ -2,12 +2,12 @@ use std::path::PathBuf;
 
 use axum::{
     Router,
-    extract::{Query, State, ws::Message},
+    extract::{Path, Query, State, ws::Message},
     response::IntoResponse,
     routing::get,
 };
 use base64::{Engine, engine::general_purpose::STANDARD as BASE64};
-use db::models::{workspace::Workspace, workspace_repo::WorkspaceRepo};
+use db::models::{repo::Repo, workspace::Workspace, workspace_repo::WorkspaceRepo};
 use deployment::Deployment;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -19,8 +19,14 @@ use crate::{
 };
 
 #[derive(Debug, Deserialize)]
-struct TerminalQuery {
+struct WorkspaceTerminalQuery {
     pub workspace_id: Uuid,
+    #[serde(flatten)]
+    pub size: TerminalSizeQuery,
+}
+
+#[derive(Debug, Deserialize)]
+struct TerminalSizeQuery {
     #[serde(default = "default_cols")]
     pub cols: u16,
     #[serde(default = "default_rows")]
@@ -52,7 +58,7 @@ enum TerminalMessage {
 async fn terminal_ws(
     ws: SignedWsUpgrade,
     State(deployment): State<DeploymentImpl>,
-    Query(query): Query<TerminalQuery>,
+    Query(query): Query<WorkspaceTerminalQuery>,
 ) -> Result<impl IntoResponse, ApiError> {
     let attempt = Workspace::find_by_id(&deployment.db().pool, query.workspace_id)
         .await?
@@ -88,8 +94,50 @@ async fn terminal_ws(
     }
 
     Ok(ws.on_upgrade(move |socket| {
+        handle_terminal_ws(
+            socket,
+            deployment,
+            working_dir,
+            query.size.cols,
+            query.size.rows,
+        )
+    }))
+}
+
+async fn repo_terminal_ws(
+    ws: SignedWsUpgrade,
+    State(deployment): State<DeploymentImpl>,
+    Path(repo_id): Path<Uuid>,
+    Query(query): Query<TerminalSizeQuery>,
+) -> Result<impl IntoResponse, ApiError> {
+    let repo = deployment
+        .repo()
+        .get_by_id(&deployment.db().pool, repo_id)
+        .await?;
+    let working_dir = repo_terminal_working_dir(&repo)?;
+
+    Ok(ws.on_upgrade(move |socket| {
         handle_terminal_ws(socket, deployment, working_dir, query.cols, query.rows)
     }))
+}
+
+fn repo_terminal_working_dir(repo: &Repo) -> Result<PathBuf, ApiError> {
+    let working_dir = repo.path.clone();
+    if !working_dir.exists() {
+        return Err(ApiError::BadRequest(format!(
+            "Repository directory does not exist: {}",
+            working_dir.display()
+        )));
+    }
+
+    if !working_dir.is_dir() {
+        return Err(ApiError::BadRequest(format!(
+            "Repository path is not a directory: {}",
+            working_dir.display()
+        )));
+    }
+
+    Ok(working_dir)
 }
 
 async fn handle_terminal_ws(
@@ -176,5 +224,7 @@ async fn send_error(socket: &mut MaybeSignedWebSocket, message: &str) -> anyhow:
 }
 
 pub(super) fn router() -> Router<DeploymentImpl> {
-    Router::new().route("/terminal/ws", get(terminal_ws))
+    Router::new()
+        .route("/terminal/ws", get(terminal_ws))
+        .route("/admin/repos/{repo_id}/terminal/ws", get(repo_terminal_ws))
 }

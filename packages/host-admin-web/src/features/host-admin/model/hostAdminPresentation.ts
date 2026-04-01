@@ -27,6 +27,12 @@ export const TABS: HostAdminTabMeta[] = [
     description: "Remove stale local branches without touching remotes.",
   },
   {
+    id: "terminal",
+    label: "Terminal",
+    summary: "Repo shell access",
+    description: "Open an authenticated terminal in a repo root for git ops.",
+  },
+  {
     id: "cleanup",
     label: "Cleanup",
     summary: "Prune or wipe persisted state",

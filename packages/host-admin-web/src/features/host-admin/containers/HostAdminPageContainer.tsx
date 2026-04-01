@@ -608,6 +608,13 @@ export function HostAdminPageContainer() {
           void handleDeleteBranch(branch);
         },
       }}
+      terminalSection={{
+        repos,
+        reposLoading,
+        selectedRepoId,
+        selectedRepo,
+        onSelectedRepoChange: setSelectedRepoId,
+      }}
       cleanupSection={{
         cleanupMessage,
         cleanupBusy,

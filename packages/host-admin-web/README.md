@@ -12,8 +12,8 @@ The Host Admin UI has two backend layers in development:
 In development, the Vite app proxies `/api/*` to the Host Admin service on
 `http://localhost:${HOST_ADMIN_PORT || 3005}`.
 
-The Host Admin service then proxies workspace, branch, and cleanup operations to
-the main local host server.
+The Host Admin service then proxies workspace, branch, cleanup, and repo
+terminal operations to the main local host server.
 
 ### Start the backend
 

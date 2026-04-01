@@ -1,5 +1,10 @@
 export type Tool = "claude" | "codex";
-export type Tab = "credentials" | "workspaces" | "branches" | "cleanup";
+export type Tab =
+  | "credentials"
+  | "workspaces"
+  | "branches"
+  | "terminal"
+  | "cleanup";
 
 export type ToolMessage = {
   kind: "success" | "error";
@@ -38,8 +43,10 @@ export type Workspace = {
 
 export type Repo = {
   id: string;
+  path: string;
   name: string;
   display_name: string | null;
+  default_target_branch: string | null;
 };
 
 export type GitBranch = {
