@@ -14,7 +14,6 @@ import {
   fetchWorkspaces,
   importGitHubRepo,
   login,
-  logout,
   saveCredentials,
 } from "@admin/features/admin/model/api";
 import {
@@ -346,21 +345,6 @@ export function PageContainer() {
     } finally {
       setLoginBusy(false);
     }
-  };
-
-  const handleLogout = async () => {
-    await logout();
-    setSession({
-      authenticated: false,
-      configured: session?.configured ?? true,
-    });
-    setWorkspaces([]);
-    setWorkspaceUsage(null);
-    setWorkspaceUsageError(null);
-    setRepos([]);
-    setBranches([]);
-    setRepoGitAuthStatus(null);
-    setRepoImportMessage(null);
   };
 
   const handleSave = async (tool: Tool) => {
@@ -713,9 +697,6 @@ export function PageContainer() {
         void handleLogin();
       }}
       onTabChange={setActiveTab}
-      onLogout={() => {
-        void handleLogout();
-      }}
     />
   );
 }

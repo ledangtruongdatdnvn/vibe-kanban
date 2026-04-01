@@ -1,25 +1,18 @@
-import { useContext, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { Card, CardHeader } from "@vibe/ui/components/Card";
 import {
   deleteBranch,
   fetchBranches,
   fetchRepos,
 } from "@admin/features/admin/model/api";
-import { TABS } from "@admin/features/admin/model/presentation";
 import type {
   GitBranch,
   Repo,
   ToolMessage,
 } from "@admin/features/admin/model/types";
-import { AdminContext } from "@admin/routes/__root";
 import { BranchesSection } from "@admin/features/admin/ui/BranchesSection";
-import { PageHeader } from "@admin/features/admin/ui/PageHeader";
 
 function BranchesRoute() {
-  const { onLogout } = useContext(AdminContext);
-  const tabMeta = TABS.find((t) => t.id === "branches")!;
-
   const [repos, setRepos] = useState<Repo[]>([]);
   const [reposLoading, setReposLoading] = useState(false);
   const [selectedRepoId, setSelectedRepoId] = useState("");
@@ -110,16 +103,6 @@ function BranchesRoute() {
 
   return (
     <>
-      <Card className="border border-border bg-panel/95 backdrop-blur-sm">
-        <CardHeader className="gap-base border-b border-border/70">
-          <PageHeader
-            title={tabMeta.label}
-            summary={tabMeta.summary}
-            description={tabMeta.description}
-            onLogout={onLogout}
-          />
-        </CardHeader>
-      </Card>
       <BranchesSection
         repos={repos}
         reposLoading={reposLoading}

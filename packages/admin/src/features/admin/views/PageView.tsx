@@ -29,7 +29,6 @@ import {
 } from "@admin/features/admin/ui/CredentialsSection";
 import { LoginCard } from "@admin/features/admin/ui/LoginCard";
 import { OverviewCard } from "@admin/features/admin/ui/OverviewCard";
-import { PageHeader } from "@admin/features/admin/ui/PageHeader";
 import { SectionNav } from "@admin/features/admin/ui/SectionNav";
 import { Shell } from "@admin/features/admin/ui/Shell";
 import {
@@ -64,7 +63,6 @@ type PageViewProps = {
   onLoginSecretChange: (value: string) => void;
   onLogin: () => void;
   onTabChange: (tab: Tab) => void;
-  onLogout: () => void;
 };
 
 function StateCard({
@@ -107,10 +105,7 @@ export function PageView({
   onLoginSecretChange,
   onLogin,
   onTabChange,
-  onLogout,
 }: PageViewProps) {
-  const activeTabMeta = TABS.find((tab) => tab.id === activeTab) ?? TABS[0];
-
   if (sessionError) {
     return (
       <Shell maxWidthClassName="max-w-[36rem]">
@@ -242,17 +237,6 @@ export function PageView({
         </Card>
 
         <div className="min-w-0 flex flex-col gap-double">
-          <Card className="border border-border bg-panel/95 backdrop-blur-sm">
-            <CardHeader className="gap-base border-b border-border/70">
-              <PageHeader
-                title={activeTabMeta.label}
-                summary={activeTabMeta.summary}
-                description={activeTabMeta.description}
-                onLogout={onLogout}
-              />
-            </CardHeader>
-          </Card>
-
           {activeTab === "credentials" && (
             <CredentialsSection {...credentialsSection} />
           )}

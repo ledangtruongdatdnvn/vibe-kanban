@@ -1,6 +1,5 @@
 import { useContext, useEffect, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { Card, CardHeader } from "@vibe/ui/components/Card";
 import {
   clearCredentials,
   fetchStatus,
@@ -11,18 +10,14 @@ import {
   INITIAL_SAVING,
   INITIAL_STATUS,
   INITIAL_VALUE,
-  TABS,
   TOOL_ORDER,
-  isSavedStatus,
 } from "@admin/features/admin/model/presentation";
 import type { Tool, ToolMessage } from "@admin/features/admin/model/types";
 import { AdminContext } from "@admin/routes/__root";
 import { CredentialsSection } from "@admin/features/admin/ui/CredentialsSection";
-import { PageHeader } from "@admin/features/admin/ui/PageHeader";
 
 function CredentialsRoute() {
-  const { onLogout, refreshOverview } = useContext(AdminContext);
-  const tabMeta = TABS.find((t) => t.id === "credentials")!;
+  const { refreshOverview } = useContext(AdminContext);
 
   const [statusByTool, setStatusByTool] =
     useState<Record<Tool, string>>(INITIAL_STATUS);
@@ -51,10 +46,6 @@ function CredentialsRoute() {
   useEffect(() => {
     void refreshCredentialStatus();
   }, []);
-
-  const savedCredentialsCount = TOOL_ORDER.filter((tool) =>
-    isSavedStatus(statusByTool[tool]),
-  ).length;
 
   const setToolValue = (tool: Tool, value: string) => {
     setValueByTool((prev) => ({ ...prev, [tool]: value }));
@@ -131,16 +122,6 @@ function CredentialsRoute() {
 
   return (
     <>
-      <Card className="border border-border bg-panel/95 backdrop-blur-sm">
-        <CardHeader className="gap-base border-b border-border/70">
-          <PageHeader
-            title={tabMeta.label}
-            summary={`${savedCredentialsCount}/2 saved · ${tabMeta.summary}`}
-            description={tabMeta.description}
-            onLogout={onLogout}
-          />
-        </CardHeader>
-      </Card>
       <CredentialsSection
         statusByTool={statusByTool}
         valueByTool={valueByTool}

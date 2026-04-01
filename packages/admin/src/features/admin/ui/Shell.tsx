@@ -1,16 +1,23 @@
 import type { ReactNode } from "react";
 import { cn } from "@vibe/ui/lib/cn";
-import { ThemeToggle } from "@admin/features/admin/ui/ThemeToggle";
+import { Button } from "@vibe/ui/components/Button";
+import { useTheme } from "@/shared/hooks/useTheme";
+import { ThemeMode } from "shared/types";
 
 type ShellProps = {
   children: ReactNode;
   maxWidthClassName?: string;
+  onLogout?: () => void;
 };
 
 export function Shell({
   children,
-  maxWidthClassName = "max-w-[76rem]",
+  maxWidthClassName = "max-w-full",
+  onLogout,
 }: ShellProps) {
+  const { theme, setTheme } = useTheme();
+  const isLightTheme = theme === ThemeMode.LIGHT;
+
   return (
     <main className="min-h-screen bg-primary px-double py-double sm:px-[2rem] sm:py-[2.5rem]">
       <div
@@ -19,8 +26,15 @@ export function Shell({
           maxWidthClassName,
         )}
       >
-        <div className="flex justify-end">
-          <ThemeToggle />
+        <div className="flex items-center justify-end gap-half">
+          <Button
+            onClick={() =>
+              setTheme(isLightTheme ? ThemeMode.DARK : ThemeMode.LIGHT)
+            }
+          >
+            {isLightTheme ? "Use dark theme" : "Use light theme"}
+          </Button>
+          {onLogout && <Button onClick={onLogout}>Log out</Button>}
         </div>
         {children}
       </div>

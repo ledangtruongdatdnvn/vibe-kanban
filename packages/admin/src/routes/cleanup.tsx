@@ -1,19 +1,15 @@
 import { useContext, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { Card, CardHeader } from "@vibe/ui/components/Card";
 import {
   cleanOrphanWorktrees,
   cleanPersistedData,
 } from "@admin/features/admin/model/api";
-import { TABS } from "@admin/features/admin/model/presentation";
 import type { ToolMessage } from "@admin/features/admin/model/types";
 import { AdminContext } from "@admin/routes/__root";
 import { CleanupSection } from "@admin/features/admin/ui/CleanupSection";
-import { PageHeader } from "@admin/features/admin/ui/PageHeader";
 
 function CleanupRoute() {
-  const { onLogout, refreshOverview } = useContext(AdminContext);
-  const tabMeta = TABS.find((t) => t.id === "cleanup")!;
+  const { refreshOverview } = useContext(AdminContext);
 
   const [cleanupMessage, setCleanupMessage] = useState<ToolMessage>(null);
   const [cleanupBusy, setCleanupBusy] = useState<null | "orphans" | "data">(
@@ -83,16 +79,6 @@ function CleanupRoute() {
 
   return (
     <>
-      <Card className="border border-border bg-panel/95 backdrop-blur-sm">
-        <CardHeader className="gap-base border-b border-border/70">
-          <PageHeader
-            title={tabMeta.label}
-            summary={tabMeta.summary}
-            description={tabMeta.description}
-            onLogout={onLogout}
-          />
-        </CardHeader>
-      </Card>
       <CleanupSection
         cleanupMessage={cleanupMessage}
         cleanupBusy={cleanupBusy}

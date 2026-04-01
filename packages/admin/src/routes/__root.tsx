@@ -251,7 +251,7 @@ function RootLayout() {
   ).length;
 
   return (
-    <Shell>
+    <Shell onLogout={handleLogout}>
       <Card className="overflow-hidden border border-border bg-panel/95 backdrop-blur-sm">
         <CardContent className="grid gap-double !p-double lg:grid-cols-[minmax(0,1.45fr)_minmax(20rem,0.95fr)]">
           <div className="flex flex-col gap-base">
