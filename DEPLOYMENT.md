@@ -100,21 +100,35 @@ docker ps | grep -E "host|relay|remote|host-admin|electric"
 
 ## Step 4 — Prepare Repos Directory
 
-Container runs as user `node` (UID 1000). Run **once** on the server:
+`docker compose up` now runs a one-shot `host-repos-init` service first, which
+creates the bind-mounted repo root and assigns it to the container user
+(`node`, UID/GID `1000:1000`) automatically.
+
+Default host path:
 
 ```bash
-mkdir -p /srv/vibe-kanban/repos
-chown -R 1000:1000 /srv/vibe-kanban/repos
+/srv/vibe-kanban/repos
 ```
 
-Then clone your repos:
+If you want a different host path, set `HOST_REPOS_DIR=/your/path` in `.env`
+before `docker compose up`.
+
+Optional overrides if your runtime UID/GID differs:
+
+```bash
+HOST_REPOS_UID=1000
+HOST_REPOS_GID=1000
+```
+
+Then either:
+
 ```bash
 git clone https://github.com/your-org/your-repo.git /srv/vibe-kanban/repos/your-repo
 ```
 
-In Vibe Kanban UI: **New Workspace → path** = `/home/node/repos/your-repo`
+or use **Import from GitHub** in the UI.
 
-If you want a different host path, set `HOST_REPOS_DIR=/your/path` in `.env` before `docker compose up`.
+In Vibe Kanban UI: **New Workspace → path** = `/home/node/repos/your-repo`
 
 ---
 
@@ -285,7 +299,9 @@ docker exec -u node <container-name> bash -c \
 
 ### "Permission denied" on git operations
 
-The host repo directory was created with the wrong owner. Fix:
+The host repo directory was created with the wrong owner. In a normal
+deployment, `host-repos-init` should correct this automatically on `docker
+compose up`. If ownership is still wrong, fix it manually:
 ```bash
 chown -R 1000:1000 "${HOST_REPOS_DIR:-/srv/vibe-kanban/repos}"
 ```

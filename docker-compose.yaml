@@ -109,6 +109,23 @@ services:
     ports:
       - "3005:3005"
 
+  # ── Host repos init ───────────────────────────────────────────────────────
+  # Prepares the bind-mounted repos directory so the HOST can clone/import
+  # repositories as the non-root `node` user on first start.
+  host-repos-init:
+    image: alpine:3.22
+    command:
+      [
+        "sh",
+        "-c",
+        "mkdir -p /repos && chown -R ${HOST_REPOS_UID:-1000}:${HOST_REPOS_GID:-1000} /repos",
+      ]
+    environment:
+      HOST_REPOS_UID: ${HOST_REPOS_UID:-1000}
+      HOST_REPOS_GID: ${HOST_REPOS_GID:-1000}
+    volumes:
+      - ${HOST_REPOS_DIR:-/srv/vibe-kanban/repos}:/repos
+
   # ── HOST service ──────────────────────────────────────────────────────────
   # Runs the vibe-kanban local server on this machine so that it acts as a
   # coding HOST reachable from any browser via the relay tunnel.
@@ -143,6 +160,8 @@ services:
         condition: service_healthy
       relay-server:
         condition: service_started
+      host-repos-init:
+        condition: service_completed_successfully
     environment:
       RUST_LOG: info
       BACKEND_PORT: 3004
