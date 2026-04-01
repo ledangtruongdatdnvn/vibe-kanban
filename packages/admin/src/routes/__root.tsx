@@ -39,9 +39,10 @@ import { OverviewCard } from "@admin/features/admin/ui/OverviewCard";
 import { SectionNav } from "@admin/features/admin/ui/SectionNav";
 import { Shell } from "@admin/features/admin/ui/Shell";
 
-export const AdminContext = createContext<{ onLogout: () => void }>(
-  null as unknown as { onLogout: () => void },
-);
+export const AdminContext = createContext<{
+  onLogout: () => void;
+  refreshOverview: () => void;
+}>(null as unknown as { onLogout: () => void; refreshOverview: () => void });
 
 function StateCard({
   title,
@@ -111,7 +112,7 @@ function RootLayout() {
     };
   }, []);
 
-  useEffect(() => {
+  const refreshOverview = () => {
     void (async () => {
       try {
         const data = await fetchStatus();
@@ -142,7 +143,14 @@ function RootLayout() {
         // overview only
       }
     })();
-  }, []);
+  };
+
+  useEffect(() => {
+    if (session?.authenticated) {
+      refreshOverview();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.authenticated]);
 
   const refreshSession = async () => {
     const nextSession = await fetchSession();
@@ -177,6 +185,9 @@ function RootLayout() {
 
   const handleLogout = async () => {
     await logout();
+    setCredentialStatus({});
+    setWorkspaceUsage(null);
+    setRepos([]);
     setSession({
       authenticated: false,
       configured: session?.configured ?? true,
@@ -312,7 +323,9 @@ function RootLayout() {
         </Card>
 
         <div className="min-w-0 flex flex-col gap-double">
-          <AdminContext.Provider value={{ onLogout: handleLogout }}>
+          <AdminContext.Provider
+            value={{ onLogout: handleLogout, refreshOverview }}
+          >
             <Outlet />
           </AdminContext.Provider>
         </div>

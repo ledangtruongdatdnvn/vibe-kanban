@@ -12,7 +12,7 @@ import { CleanupSection } from "@admin/features/admin/ui/CleanupSection";
 import { PageHeader } from "@admin/features/admin/ui/PageHeader";
 
 function CleanupRoute() {
-  const { onLogout } = useContext(AdminContext);
+  const { onLogout, refreshOverview } = useContext(AdminContext);
   const tabMeta = TABS.find((t) => t.id === "cleanup")!;
 
   const [cleanupMessage, setCleanupMessage] = useState<ToolMessage>(null);
@@ -38,6 +38,7 @@ function CleanupRoute() {
         kind: "success",
         text: `Checked ${data.repos_checked} repo(s), pruned ${data.repos_pruned}.${warnings}`,
       });
+      refreshOverview();
     } catch (error) {
       setCleanupMessage({
         kind: "error",
@@ -66,6 +67,7 @@ function CleanupRoute() {
         kind: "success",
         text: data.message || "Persisted host data deleted.",
       });
+      refreshOverview();
     } catch (error) {
       setCleanupMessage({
         kind: "error",

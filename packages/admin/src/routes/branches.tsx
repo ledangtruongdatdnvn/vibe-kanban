@@ -4,7 +4,6 @@ import { Card, CardHeader } from "@vibe/ui/components/Card";
 import {
   deleteBranch,
   fetchBranches,
-  fetchRepoGitAuthStatus,
   fetchRepos,
 } from "@admin/features/admin/model/api";
 import { TABS } from "@admin/features/admin/model/presentation";
@@ -82,10 +81,7 @@ function BranchesRoute() {
       setBranches([]);
       return;
     }
-    void Promise.all([
-      refreshBranches(selectedRepoId),
-      fetchRepoGitAuthStatus(selectedRepoId).catch(() => null),
-    ]);
+    void refreshBranches(selectedRepoId);
   }, [selectedRepoId]);
 
   const handleDeleteBranch = async (branch: GitBranch) => {
