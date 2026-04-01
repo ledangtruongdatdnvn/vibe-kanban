@@ -126,16 +126,16 @@ services:
   #   - cleaning orphan worktrees
   #   - wiping persisted host data / saved credentials
   #
-  # Protect this service with HOST_ADMIN_SECRET and keep it disabled unless
+  # Protect this service with ADMIN_SECRET and keep it disabled unless
   # you actively need it.
-  host-admin:
+  admin:
     build:
       context: .
-      dockerfile: services/host-admin/Dockerfile
+      dockerfile: services/admin/Dockerfile
     restart: unless-stopped
     environment:
-      HOST_ADMIN_SECRET: ${HOST_ADMIN_SECRET:-}
-      HOST_ADMIN_BASE_URL: http://host:3004
+      ADMIN_SECRET: ${ADMIN_SECRET:-}
+      ADMIN_BASE_URL: http://host:3004
       CLAUDE_CREDS_DIR: /creds/claude
       CODEX_CREDS_DIR: /creds/codex
       HOST_DATA_DIR: /data/host-data

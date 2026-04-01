@@ -32,7 +32,7 @@ export function LoginCard({
         <CardTitle>Admin login</CardTitle>
         <CardDescription>
           Sign in with the shared admin secret configured in{" "}
-          <code>HOST_ADMIN_SECRET</code>.
+          <code>ADMIN_SECRET</code>.
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-double">

@@ -7,10 +7,10 @@ This package contains the standalone Host Admin web UI.
 The Host Admin UI has two backend layers in development:
 
 - The main local host server
-- The Host Admin service in `services/host-admin/server.js`
+- The Host Admin service in `services/admin/server.js`
 
 In development, the Vite app proxies `/api/*` to the Host Admin service on
-`http://localhost:${HOST_ADMIN_PORT || 3005}`.
+`http://localhost:${ADMIN_PORT || 3005}`.
 
 The Host Admin service then proxies workspace, branch, cleanup, and repo
 terminal operations to the main local host server.
@@ -28,17 +28,17 @@ pnpm run backend:dev
 In a second terminal, from the repository root:
 
 ```bash
-pnpm run host-admin:service:dev
+pnpm run admin:service:dev
 ```
 
 This script:
 
 - reuses the repo's allocated backend port
-- points `HOST_ADMIN_BASE_URL` at that backend
+- points `ADMIN_BASE_URL` at that backend
 - starts the Host Admin service on port `3005`
-- uses `HOST_ADMIN_SECRET=dev-secret` if you did not set one
+- uses `ADMIN_SECRET=dev-secret` if you did not set one
 
-If you want a different secret, export `HOST_ADMIN_SECRET` before starting the
+If you want a different secret, export `ADMIN_SECRET` before starting the
 service.
 
 ### Start the Host Admin UI
@@ -46,11 +46,11 @@ service.
 In a third terminal:
 
 ```bash
-pnpm --filter @vibe/host-admin-web dev
+pnpm --filter @vibe/admin dev
 ```
 
 If you want the Host Admin service on a different port, export
-`HOST_ADMIN_PORT` before starting both the service and the Vite app.
+`ADMIN_PORT` before starting both the service and the Vite app.
 
 ## Common dev errors
 
@@ -74,8 +74,8 @@ service port.
 
 Check:
 
-1. `pnpm run host-admin:service:dev` is still running.
-2. `HOST_ADMIN_PORT` matches the Host Admin service port.
+1. `pnpm run admin:service:dev` is still running.
+2. `ADMIN_PORT` matches the Host Admin service port.
 3. `pnpm run backend:dev` is still running, because the Host Admin service
    also depends on the main backend.
 

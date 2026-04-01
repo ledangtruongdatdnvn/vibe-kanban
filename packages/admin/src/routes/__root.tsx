@@ -149,7 +149,7 @@ function RootLayout() {
       <Shell maxWidthClassName="max-w-[36rem]">
         <StateCard
           title="Host Admin"
-          description="Configure HOST_ADMIN_SECRET before exposing this service."
+          description="Configure ADMIN_SECRET before exposing this service."
         />
       </Shell>
     );

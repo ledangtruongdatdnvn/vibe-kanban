@@ -10,6 +10,7 @@ import {
 } from "@vibe/ui/components/Card";
 import { Label } from "@vibe/ui/components/Label";
 import { PrimaryButton } from "@vibe/ui/components/PrimaryButton";
+import { CopyButton } from "@vibe/ui/components/CopyButton";
 import { Textarea } from "@vibe/ui/components/Textarea";
 import {
   INITIAL_MESSAGE,
@@ -19,7 +20,6 @@ import {
   statusBadgeText,
 } from "@admin/features/admin/model/presentation";
 import type { Tool, ToolMessage } from "@admin/features/admin/model/types";
-import { CopyButton } from "@admin/features/admin/ui/CopyButton";
 
 export type CredentialsSectionProps = {
   statusByTool: Record<Tool, string>;
@@ -42,6 +42,10 @@ export function CredentialsSection({
   onSave,
   onClearCredentials,
 }: CredentialsSectionProps) {
+  const canCopy =
+    typeof navigator !== "undefined" &&
+    typeof navigator.clipboard?.writeText === "function";
+
   return (
     <div className="grid gap-double lg:grid-cols-2">
       {TOOL_ORDER.map((tool) => {
@@ -70,7 +74,17 @@ export function CredentialsSection({
                   <code className="flex-1 whitespace-pre-wrap break-all text-xs text-high">
                     {config.command}
                   </code>
-                  <CopyButton value={config.command} />
+                  <div className="mt-[2px]">
+                    <CopyButton
+                      onCopy={() =>
+                        navigator.clipboard.writeText(config.command)
+                      }
+                      disabled={!canCopy}
+                      iconSize="size-icon-sm"
+                      copyLabel="Copy command"
+                      copiedLabel="Copied"
+                    />
+                  </div>
                 </div>
                 {config.hint && <p>{config.hint}</p>}
               </CardDescription>

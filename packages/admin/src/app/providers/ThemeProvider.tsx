@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { ThemeProviderContext } from "@/shared/hooks/useTheme";
 import { ThemeMode } from "shared/types";
 
-const STORAGE_KEY = "vibe-host-admin-theme";
+const STORAGE_KEY = "vibe-admin-theme";
 
 type ThemeProviderProps = {
   children: ReactNode;

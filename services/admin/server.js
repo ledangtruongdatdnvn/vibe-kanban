@@ -21,15 +21,15 @@ const PORT = parseInt(process.env.PORT || "3005", 10);
 const CLAUDE_DIR = process.env.CLAUDE_CREDS_DIR || "/creds/claude";
 const CODEX_DIR = process.env.CODEX_CREDS_DIR || "/creds/codex";
 const HOST_DATA_DIR = process.env.HOST_DATA_DIR || "/data/host-data";
-const HOST_ADMIN_BASE_URL = (
-  process.env.HOST_ADMIN_BASE_URL || "http://host:3004"
+const ADMIN_BASE_URL = (
+  process.env.ADMIN_BASE_URL || "http://host:3004"
 ).replace(/\/+$/, "");
-const HOST_ADMIN_SECRET = process.env.HOST_ADMIN_SECRET || "";
+const ADMIN_SECRET = process.env.ADMIN_SECRET || "";
 const COOKIE_SECURE =
   process.env.NODE_ENV === "production" &&
-  process.env.HOST_ADMIN_COOKIE_SECURE !== "false";
+  process.env.ADMIN_COOKIE_SECURE !== "false";
 const DIST_DIR = path.join(__dirname, "dist");
-const SESSION_COOKIE_NAME = "host_admin_session";
+const SESSION_COOKIE_NAME = "admin_session";
 const SESSION_TTL_MS = 8 * 60 * 60 * 1000;
 
 const sessions = new Map();
@@ -144,7 +144,7 @@ function serveStatic(res, filePath, method = "GET") {
 
   fs.createReadStream(filePath)
     .on("error", (error) => {
-      console.error("[host-admin]", error);
+      console.error("[admin]", error);
       if (!res.headersSent) {
         json(res, 500, { error: String(error) });
       } else {
@@ -239,7 +239,7 @@ function clearSession(req) {
 }
 
 function compareSecret(candidate) {
-  if (!HOST_ADMIN_SECRET) {
+  if (!ADMIN_SECRET) {
     return false;
   }
 
@@ -247,7 +247,7 @@ function compareSecret(candidate) {
     return false;
   }
 
-  const expected = Buffer.from(HOST_ADMIN_SECRET);
+  const expected = Buffer.from(ADMIN_SECRET);
   const provided = Buffer.from(candidate);
   if (expected.length !== provided.length) {
     return false;
@@ -257,11 +257,11 @@ function compareSecret(candidate) {
 }
 
 function requireConfiguredSecret(res) {
-  if (HOST_ADMIN_SECRET) {
+  if (ADMIN_SECRET) {
     return true;
   }
 
-  json(res, 503, { error: "HOST_ADMIN_SECRET is not configured." });
+  json(res, 503, { error: "ADMIN_SECRET is not configured." });
   return false;
 }
 
@@ -301,8 +301,8 @@ function writeUpgradeError(socket, statusCode, message) {
 }
 
 function requireUpgradeAuth(req, socket) {
-  if (!HOST_ADMIN_SECRET) {
-    writeUpgradeError(socket, 503, "HOST_ADMIN_SECRET is not configured.");
+  if (!ADMIN_SECRET) {
+    writeUpgradeError(socket, 503, "ADMIN_SECRET is not configured.");
     return false;
   }
 
@@ -385,7 +385,7 @@ function handleTerminalUpgrade(req, socket, head, url) {
     return;
   }
 
-  const baseUrl = new URL(HOST_ADMIN_BASE_URL);
+  const baseUrl = new URL(ADMIN_BASE_URL);
   const requestModule = baseUrl.protocol === "https:" ? https : http;
   const targetPath = `${url.pathname.replace(
     /^\/api\/repos\//,
@@ -430,7 +430,7 @@ function handleTerminalUpgrade(req, socket, head, url) {
     });
     upstreamRes.on("end", () => {
       const bodyBuffer = Buffer.concat(chunks);
-      console.error("[host-admin] terminal proxy rejected upgrade", {
+      console.error("[admin] terminal proxy rejected upgrade", {
         statusCode: upstreamRes.statusCode || 502,
         statusMessage: upstreamRes.statusMessage || "Bad Gateway",
         targetPath,
@@ -442,7 +442,7 @@ function handleTerminalUpgrade(req, socket, head, url) {
   });
 
   upstreamReq.on("error", (error) => {
-    console.error("[host-admin] terminal proxy error", error);
+    console.error("[admin] terminal proxy error", error);
     if (!socket.destroyed) {
       writeUpgradeError(
         socket,
@@ -502,7 +502,7 @@ async function proxyToHost(method, targetPath, body) {
     requestInit.body = body;
   }
 
-  const response = await fetch(`${HOST_ADMIN_BASE_URL}${targetPath}`, requestInit);
+  const response = await fetch(`${ADMIN_BASE_URL}${targetPath}`, requestInit);
   const responseBody = await response.text();
 
   return {
@@ -588,7 +588,7 @@ async function handleSaveCredentials(req, res) {
     mode: 0o644,
   });
 
-  console.log(`[host-admin] saved ${tool} credentials to ${dir}/${filename}`);
+  console.log(`[admin] saved ${tool} credentials to ${dir}/${filename}`);
   json(res, 200, { message: `${tool} credentials saved successfully.` });
 }
 
@@ -622,7 +622,7 @@ function handleStatus(res) {
 function handleSession(req, res) {
   json(res, 200, {
     authenticated: isAuthenticated(req),
-    configured: Boolean(HOST_ADMIN_SECRET),
+    configured: Boolean(ADMIN_SECRET),
   });
 }
 
@@ -905,7 +905,7 @@ const server = http.createServer(async (req, res) => {
     res.writeHead(404);
     res.end("Not found");
   } catch (error) {
-    console.error("[host-admin]", error);
+    console.error("[admin]", error);
     json(res, 500, {
       error: error instanceof Error ? error.message : String(error),
     });
@@ -923,7 +923,7 @@ server.on("upgrade", (req, socket, head) => {
 
     handleTerminalUpgrade(req, socket, head, url);
   } catch (error) {
-    console.error("[host-admin]", error);
+    console.error("[admin]", error);
     if (!socket.destroyed) {
       writeUpgradeError(
         socket,
@@ -935,12 +935,12 @@ server.on("upgrade", (req, socket, head) => {
 });
 
 server.listen(PORT, "0.0.0.0", () => {
-  console.log(`[host-admin] listening on http://0.0.0.0:${PORT}`);
+  console.log(`[admin] listening on http://0.0.0.0:${PORT}`);
   console.log(`  Claude creds dir   : ${CLAUDE_DIR}`);
   console.log(`  Codex creds dir    : ${CODEX_DIR}`);
   console.log(`  Host data dir      : ${HOST_DATA_DIR}`);
-  console.log(`  Host admin base URL: ${HOST_ADMIN_BASE_URL}`);
+  console.log(`  Admin base URL     : ${ADMIN_BASE_URL}`);
   console.log(
-    `  Host admin secret  : ${HOST_ADMIN_SECRET ? "configured" : "missing"}`,
+    `  Admin secret       : ${ADMIN_SECRET ? "configured" : "missing"}`,
   );
 });

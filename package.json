@@ -24,7 +24,7 @@
     "admin:build": "pnpm --filter @vibe/admin run build",
     "admin:check": "pnpm --filter @vibe/admin run check",
     "admin:format": "pnpm --filter @vibe/admin run format",
-    "host-admin:service:dev": "export BACKEND_PORT=$(node scripts/setup-dev-environment.js backend) && export HOST_ADMIN_SECRET=${HOST_ADMIN_SECRET:-dev-secret} && export HOST_ADMIN_BASE_URL=http://localhost:${BACKEND_PORT} && PORT=${HOST_ADMIN_PORT:-3005} node services/host-admin/server.js",
+    "admin:service:dev": "export BACKEND_PORT=$(node scripts/setup-dev-environment.js backend) && export ADMIN_SECRET=${ADMIN_SECRET:-dev-secret} && export ADMIN_BASE_URL=http://localhost:${BACKEND_PORT} && PORT=${ADMIN_PORT:-3005} node services/admin/server.js",
     "remote-web:check": "pnpm --filter @vibe/remote-web run check",
     "local-web:format": "pnpm --filter @vibe/local-web run format",
     "remote-web:format": "pnpm --filter @vibe/remote-web run format",

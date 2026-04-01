@@ -53,7 +53,7 @@ export default defineConfig({
     port: 3006,
     proxy: {
       '/api': {
-        target: `http://localhost:${process.env.HOST_ADMIN_PORT || '3005'}`,
+        target: `http://localhost:${process.env.ADMIN_PORT || '3005'}`,
         changeOrigin: true,
         ws: true,
       },

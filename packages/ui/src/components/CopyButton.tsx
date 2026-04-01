@@ -5,12 +5,11 @@ import { Tooltip } from './Tooltip';
 
 interface CopyButtonProps {
   onCopy: () => void | Promise<void>;
-  disabled?: boolean;
+  disabled: boolean;
   iconSize: string;
   icon?: Icon;
-  copyLabel?: string;
-  copiedLabel?: string;
-  className?: string;
+  copyLabel: string;
+  copiedLabel: string;
 }
 
 /**
@@ -19,12 +18,11 @@ interface CopyButtonProps {
  */
 export function CopyButton({
   onCopy,
-  disabled = false,
+  disabled,
   iconSize,
   icon: DefaultIcon = CopyIcon,
-  copyLabel = 'Copy',
-  copiedLabel = 'Copied',
-  className,
+  copyLabel,
+  copiedLabel,
 }: CopyButtonProps) {
   const [copied, setCopied] = useState(false);
 
@@ -54,10 +52,9 @@ export function CopyButton({
     <button
       type="button"
       className={cn(
-        'group flex items-center justify-center transition-colors',
+        'flex items-center justify-center transition-colors',
         'drop-shadow-[2px_2px_4px_rgba(121,121,121,0.25)]',
-        'text-low hover:text-normal disabled:cursor-not-allowed disabled:opacity-40',
-        className
+        'text-low group-hover:text-normal disabled:cursor-not-allowed disabled:opacity-40'
       )}
       aria-label={tooltip}
       onClick={() => {

@@ -274,13 +274,13 @@ export function TerminalSection({
 
     if (!selectedRepo) {
       setConnectionState("idle");
-      terminal.writeln("[host-admin] Select a repository to open a shell.");
+      terminal.writeln("[admin] Select a repository to open a shell.");
       return;
     }
 
     setConnectionState("connecting");
     terminal.writeln(
-      `[host-admin] Connecting to ${selectedRepo.display_name || selectedRepo.name}…`,
+      `[admin] Connecting to ${selectedRepo.display_name || selectedRepo.name}…`,
     );
 
     let cancelled = false;
@@ -314,7 +314,7 @@ export function TerminalSection({
 
           setConnectionState("connected");
           setConnectionError(null);
-          terminal.writeln(`[host-admin] Shell ready in ${selectedRepo.path}`);
+          terminal.writeln(`[admin] Shell ready in ${selectedRepo.path}`);
           terminal.focus();
           sendResize();
         };
@@ -339,7 +339,7 @@ export function TerminalSection({
                 payload.message || "Terminal session closed unexpectedly.";
               setConnectionError(message);
               setConnectionState("error");
-              terminal.writeln(`\r\n[host-admin] ${message}`);
+              terminal.writeln(`\r\n[admin] ${message}`);
             }
           } catch {
             setConnectionError("Received an invalid terminal payload.");
