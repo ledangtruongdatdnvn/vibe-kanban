@@ -765,6 +765,55 @@ async function handleApi(req, res, url) {
     return;
   }
 
+  if (req.method === "POST" && url.pathname === "/api/repos/import/github") {
+    const parsed = parseJsonBody(await readBody(req));
+    if (!parsed.ok) {
+      json(res, 400, { error: parsed.error });
+      return;
+    }
+
+    const repository =
+      typeof parsed.data.repository === "string"
+        ? parsed.data.repository.trim()
+        : "";
+    if (!repository) {
+      json(res, 400, { error: "repository is required." });
+      return;
+    }
+
+    const folderName =
+      typeof parsed.data.folderName === "string" &&
+      parsed.data.folderName.trim()
+        ? parsed.data.folderName.trim()
+        : null;
+    const displayName =
+      typeof parsed.data.displayName === "string" &&
+      parsed.data.displayName.trim()
+        ? parsed.data.displayName.trim()
+        : null;
+
+    try {
+      sendProxyResponse(
+        res,
+        await proxyToHost(
+          "POST",
+          "/api/repos/import/github",
+          JSON.stringify({
+            repository,
+            folder_name: folderName,
+            display_name: displayName,
+          }),
+        ),
+      );
+    } catch (error) {
+      json(res, 502, {
+        error:
+          error instanceof Error ? error.message : "Host service unavailable.",
+      });
+    }
+    return;
+  }
+
   if (
     req.method === "GET" &&
     /^\/api\/repos\/[^/]+\/git-auth$/.test(url.pathname)

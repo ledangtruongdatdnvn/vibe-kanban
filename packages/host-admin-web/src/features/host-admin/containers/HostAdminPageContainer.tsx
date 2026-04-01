@@ -12,6 +12,7 @@ import {
   fetchStatus,
   fetchWorkspaceUsage,
   fetchWorkspaces,
+  importGitHubRepo,
   login,
   logout,
   saveCredentials,
@@ -26,6 +27,7 @@ import {
 } from "@host-admin/features/host-admin/model/hostAdminPresentation";
 import type {
   GitBranch,
+  GitHubRepoImportInput,
   Repo,
   RepoGitAuthStatus,
   SessionResponse,
@@ -85,6 +87,8 @@ export function HostAdminPageContainer() {
   const [repoGitAuthStatus, setRepoGitAuthStatus] =
     useState<RepoGitAuthStatus | null>(null);
   const [repoGitAuthLoading, setRepoGitAuthLoading] = useState(false);
+  const [repoImportBusy, setRepoImportBusy] = useState(false);
+  const [repoImportMessage, setRepoImportMessage] = useState<ToolMessage>(null);
 
   const [cleanupMessage, setCleanupMessage] = useState<ToolMessage>(null);
   const [cleanupBusy, setCleanupBusy] = useState<null | "orphans" | "data">(
@@ -219,12 +223,18 @@ export function HostAdminPageContainer() {
     }
   };
 
-  const refreshRepos = async () => {
+  const refreshRepos = async (preferredRepoId?: string) => {
     setReposLoading(true);
     try {
       const { data } = await fetchRepos();
       setRepos(data);
       setSelectedRepoId((previous) => {
+        if (
+          preferredRepoId &&
+          data.some((repo) => repo.id === preferredRepoId)
+        ) {
+          return preferredRepoId;
+        }
         if (previous && data.some((repo) => repo.id === previous)) {
           return previous;
         }
@@ -350,6 +360,7 @@ export function HostAdminPageContainer() {
     setRepos([]);
     setBranches([]);
     setRepoGitAuthStatus(null);
+    setRepoImportMessage(null);
   };
 
   const handleSave = async (tool: Tool) => {
@@ -504,6 +515,38 @@ export function HostAdminPageContainer() {
     }
   };
 
+  const handleImportGitHubRepo = async (
+    input: GitHubRepoImportInput,
+  ): Promise<boolean> => {
+    setRepoImportBusy(true);
+    setRepoImportMessage(null);
+
+    try {
+      const { data } = await importGitHubRepo(input);
+      await refreshRepos(data.id);
+      await Promise.all([
+        refreshBranches(data.id),
+        refreshRepoGitAuth(data.id),
+      ]);
+      setRepoImportMessage({
+        kind: "success",
+        text: `Repository "${data.display_name || data.name}" is ready in Host Admin.`,
+      });
+      return true;
+    } catch (error) {
+      setRepoImportMessage({
+        kind: "error",
+        text:
+          error instanceof Error
+            ? error.message
+            : "Failed to import the GitHub repository.",
+      });
+      return false;
+    } finally {
+      setRepoImportBusy(false);
+    }
+  };
+
   const handleCleanOrphans = async () => {
     const confirmed = window.confirm(
       "Run orphan workspace cleanup and git worktree prune across all registered repos?",
@@ -650,7 +693,10 @@ export function HostAdminPageContainer() {
         selectedRepo,
         gitAuthStatus: repoGitAuthStatus,
         gitAuthLoading: repoGitAuthLoading,
+        repoImportBusy,
+        repoImportMessage,
         onSelectedRepoChange: setSelectedRepoId,
+        onImportGitHubRepo: handleImportGitHubRepo,
       }}
       cleanupSection={{
         cleanupMessage,

@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type FormEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { Terminal } from "@xterm/xterm";
@@ -26,8 +33,10 @@ import { useTheme } from "@/shared/hooks/useTheme";
 import { openLocalApiWebSocket } from "@/shared/lib/localApiTransport";
 import { getTerminalTheme } from "@/shared/lib/terminalTheme";
 import type {
+  GitHubRepoImportInput,
   Repo,
   RepoGitAuthStatus,
+  ToolMessage,
 } from "@host-admin/features/host-admin/model/hostAdminTypes";
 
 type ConnectionState =
@@ -44,7 +53,10 @@ export type HostAdminTerminalSectionProps = {
   selectedRepo: Repo | null;
   gitAuthStatus: RepoGitAuthStatus | null;
   gitAuthLoading: boolean;
+  repoImportBusy: boolean;
+  repoImportMessage: ToolMessage;
   onSelectedRepoChange: (repoId: string) => void;
+  onImportGitHubRepo: (input: GitHubRepoImportInput) => Promise<boolean>;
 };
 
 function encodeBase64(value: string) {
@@ -83,7 +95,10 @@ export function HostAdminTerminalSection({
   selectedRepo,
   gitAuthStatus,
   gitAuthLoading,
+  repoImportBusy,
+  repoImportMessage,
   onSelectedRepoChange,
+  onImportGitHubRepo,
 }: HostAdminTerminalSectionProps) {
   const { theme } = useTheme();
   const terminalContainerRef = useRef<HTMLDivElement | null>(null);
@@ -107,6 +122,9 @@ export function HostAdminTerminalSection({
   useEffect(() => {
     setMergeTarget(defaultMergeTarget);
   }, [defaultMergeTarget, selectedRepoId]);
+  const [importRepository, setImportRepository] = useState("");
+  const [importFolderName, setImportFolderName] = useState("");
+  const [importDisplayName, setImportDisplayName] = useState("");
 
   const closeSocket = useCallback(() => {
     const socket = socketRef.current;
@@ -390,6 +408,27 @@ export function HostAdminTerminalSection({
           ? "unsupported"
           : "unavailable";
 
+  const handleImportSubmit = useCallback(
+    (event: FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+
+      void (async () => {
+        const success = await onImportGitHubRepo({
+          repository: importRepository,
+          folderName: importFolderName || undefined,
+          displayName: importDisplayName || undefined,
+        });
+
+        if (success) {
+          setImportRepository("");
+          setImportFolderName("");
+          setImportDisplayName("");
+        }
+      })();
+    },
+    [importDisplayName, importFolderName, importRepository, onImportGitHubRepo],
+  );
+
   return (
     <Card className="border border-border bg-panel/80">
       <CardHeader>
@@ -413,6 +452,83 @@ export function HostAdminTerminalSection({
             <AlertDescription>{connectionError}</AlertDescription>
           </Alert>
         )}
+
+        <form
+          className="grid gap-base rounded-lg border border-border/80 bg-panel/60 p-base xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1fr)_auto]"
+          onSubmit={handleImportSubmit}
+        >
+          <div className="flex flex-col gap-half xl:col-span-4">
+            <Label className="text-sm text-high" htmlFor="github-repo-import">
+              Import from GitHub
+            </Label>
+            <p className="text-sm text-low">
+              Clone a GitHub repo into the managed host repo root and register
+              it for Terminal and Branches. This import path expects GitHub App
+              access to the target repo.
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-half">
+            <Label htmlFor="github-repo-import">Repository</Label>
+            <Input
+              id="github-repo-import"
+              value={importRepository}
+              onChange={(event) => setImportRepository(event.target.value)}
+              placeholder="owner/repo or https://github.com/owner/repo"
+              autoComplete="off"
+              spellCheck={false}
+              disabled={repoImportBusy}
+            />
+          </div>
+
+          <div className="flex flex-col gap-half">
+            <Label htmlFor="github-repo-folder">Folder name</Label>
+            <Input
+              id="github-repo-folder"
+              value={importFolderName}
+              onChange={(event) => setImportFolderName(event.target.value)}
+              placeholder="Optional local folder"
+              autoComplete="off"
+              spellCheck={false}
+              disabled={repoImportBusy}
+            />
+          </div>
+
+          <div className="flex flex-col gap-half">
+            <Label htmlFor="github-repo-display-name">Display name</Label>
+            <Input
+              id="github-repo-display-name"
+              value={importDisplayName}
+              onChange={(event) => setImportDisplayName(event.target.value)}
+              placeholder="Optional admin label"
+              autoComplete="off"
+              spellCheck={false}
+              disabled={repoImportBusy}
+            />
+          </div>
+
+          <div className="flex items-end">
+            <Button
+              type="submit"
+              className="w-full xl:w-auto"
+              disabled={repoImportBusy || !importRepository.trim()}
+            >
+              {repoImportBusy ? "Importing…" : "Clone and register"}
+            </Button>
+          </div>
+
+          {repoImportMessage && (
+            <div className="xl:col-span-4">
+              <Alert
+                variant={
+                  repoImportMessage.kind === "error" ? "destructive" : undefined
+                }
+              >
+                <AlertDescription>{repoImportMessage.text}</AlertDescription>
+              </Alert>
+            </div>
+          )}
+        </form>
 
         <div className="grid gap-double xl:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]">
           <div className="flex flex-col gap-double">

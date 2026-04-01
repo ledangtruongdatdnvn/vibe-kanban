@@ -609,6 +609,14 @@ impl From<RepoServiceError> for ApiError {
             RepoServiceError::InvalidFolderName(name) => {
                 ApiError::BadRequest(format!("Invalid folder name: {}", name))
             }
+            RepoServiceError::InvalidGitHubRepository(reference) => ApiError::BadRequest(format!(
+                "Invalid GitHub repository reference: {}",
+                reference
+            )),
+            RepoServiceError::RemoteMismatch { expected, found } => ApiError::Conflict(format!(
+                "Existing repository remote does not match requested repository. Expected {}, found {}",
+                expected, found
+            )),
         }
     }
 }

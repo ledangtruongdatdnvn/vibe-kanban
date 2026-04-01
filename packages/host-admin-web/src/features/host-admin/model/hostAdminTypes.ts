@@ -49,6 +49,12 @@ export type Repo = {
   default_target_branch: string | null;
 };
 
+export type GitHubRepoImportInput = {
+  repository: string;
+  folderName?: string;
+  displayName?: string;
+};
+
 export type GitBranch = {
   name: string;
   is_current: boolean;

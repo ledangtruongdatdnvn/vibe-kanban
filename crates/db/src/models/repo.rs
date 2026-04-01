@@ -53,7 +53,7 @@ pub struct Repo {
     pub updated_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, Deserialize, TS)]
+#[derive(Debug, Clone, Default, Deserialize, TS)]
 pub struct UpdateRepo {
     #[serde(
         default,

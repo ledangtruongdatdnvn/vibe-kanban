@@ -1562,7 +1562,6 @@ impl GitService {
     }
 
     /// Clone a repository to the specified directory
-    #[cfg(feature = "cloud")]
     pub fn clone_repository(
         clone_url: &str,
         target_path: &Path,
@@ -1577,8 +1576,8 @@ impl GitService {
         // Set up callbacks for authentication if token is provided
         let mut callbacks = RemoteCallbacks::new();
         if let Some(token) = token {
-            callbacks.credentials(|_url, username_from_url, _allowed_types| {
-                Cred::userpass_plaintext(username_from_url.unwrap_or("git"), token)
+            callbacks.credentials(|_url, _username_from_url, _allowed_types| {
+                Cred::userpass_plaintext("x-access-token", token)
             });
         } else {
             // Fallback to SSH agent and key file authentication

@@ -210,6 +210,37 @@ export interface OrganizationBillingStatusResponse {
   } | null;
 }
 
+export interface GitHubAppInstallationDetails {
+  id: string;
+  github_installation_id: number;
+  github_account_login: string;
+  github_account_type: string;
+  repository_selection: string;
+  suspended_at: string | null;
+  created_at: string;
+}
+
+export interface GitHubAppRepositoryDetails {
+  id: string;
+  github_repo_id: number;
+  repo_full_name: string;
+  review_enabled: boolean;
+}
+
+export interface GitHubAppStatusResponse {
+  installed: boolean;
+  installation?: GitHubAppInstallationDetails | null;
+  repositories: GitHubAppRepositoryDetails[];
+}
+
+export interface GitHubAppInstallUrlResponse {
+  install_url: string;
+}
+
+export interface GitHubAppBulkReviewEnabledResponse {
+  updated_count: number;
+}
+
 // Special handler for Result-returning endpoints
 const handleApiResponseAsResult = async <T, E>(
   response: Response
@@ -1490,6 +1521,74 @@ export const organizationsApi = {
     const response = await makeRemoteRequest(`/v1/organizations/${orgId}`, {
       method: 'DELETE',
     });
+    return handleRemoteResponse<void>(response);
+  },
+
+  getGitHubAppInstallUrl: async (
+    orgId: string
+  ): Promise<GitHubAppInstallUrlResponse> => {
+    const response = await makeRemoteRequest(
+      `/v1/organizations/${orgId}/github-app/install-url`
+    );
+    return handleRemoteResponse<GitHubAppInstallUrlResponse>(response);
+  },
+
+  getGitHubAppStatus: async (
+    orgId: string
+  ): Promise<GitHubAppStatusResponse> => {
+    const response = await makeRemoteRequest(
+      `/v1/organizations/${orgId}/github-app/status`
+    );
+    return handleRemoteResponse<GitHubAppStatusResponse>(response);
+  },
+
+  syncGitHubAppRepositories: async (
+    orgId: string
+  ): Promise<GitHubAppRepositoryDetails[]> => {
+    const response = await makeRemoteRequest(
+      `/v1/organizations/${orgId}/github-app/repositories`
+    );
+    return handleRemoteResponse<GitHubAppRepositoryDetails[]>(response);
+  },
+
+  updateGitHubAppRepositoryReviewEnabled: async (
+    orgId: string,
+    repoId: string,
+    enabled: boolean
+  ): Promise<GitHubAppRepositoryDetails> => {
+    const response = await makeRemoteRequest(
+      `/v1/organizations/${orgId}/github-app/repositories/${repoId}/review-enabled`,
+      {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled }),
+      }
+    );
+    return handleRemoteResponse<GitHubAppRepositoryDetails>(response);
+  },
+
+  updateGitHubAppAllRepositoriesReviewEnabled: async (
+    orgId: string,
+    enabled: boolean
+  ): Promise<GitHubAppBulkReviewEnabledResponse> => {
+    const response = await makeRemoteRequest(
+      `/v1/organizations/${orgId}/github-app/repositories/review-enabled`,
+      {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled }),
+      }
+    );
+    return handleRemoteResponse<GitHubAppBulkReviewEnabledResponse>(response);
+  },
+
+  removeGitHubAppInstallation: async (orgId: string): Promise<void> => {
+    const response = await makeRemoteRequest(
+      `/v1/organizations/${orgId}/github-app`,
+      {
+        method: 'DELETE',
+      }
+    );
     return handleRemoteResponse<void>(response);
   },
 };

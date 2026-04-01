@@ -21,7 +21,7 @@ use uuid::Uuid;
 use crate::{
     DeploymentImpl,
     error::ApiError,
-    repo_git_auth::{RepoGitAuthStatus, resolve_repo_git_auth},
+    repo_git_auth::{RepoGitAuthStatus, fetch_github_app_repo_access_token, resolve_repo_git_auth},
 };
 
 #[derive(serde::Deserialize)]
@@ -45,6 +45,13 @@ pub struct RegisterRepoRequest {
 pub struct InitRepoRequest {
     pub parent_path: String,
     pub folder_name: String,
+}
+
+#[derive(Debug, Deserialize, TS)]
+pub struct ImportGitHubRepoRequest {
+    pub repository: String,
+    pub folder_name: Option<String>,
+    pub display_name: Option<String>,
 }
 
 #[derive(Debug, Deserialize, TS)]
@@ -79,6 +86,32 @@ pub async fn init_repo(
             deployment.git(),
             &payload.parent_path,
             &payload.folder_name,
+        )
+        .await?;
+
+    Ok(ResponseJson(ApiResponse::success(repo)))
+}
+
+pub async fn import_github_repo(
+    State(deployment): State<DeploymentImpl>,
+    ResponseJson(payload): ResponseJson<ImportGitHubRepoRequest>,
+) -> Result<ResponseJson<ApiResponse<Repo>>, ApiError> {
+    let repo_full_name = deployment
+        .repo()
+        .resolve_github_repo_full_name(&payload.repository)?;
+    let token = fetch_github_app_repo_access_token(&deployment, &repo_full_name)
+        .await
+        .map_err(ApiError::BadRequest)?;
+
+    let repo = deployment
+        .repo()
+        .import_github_repo(
+            &deployment.db().pool,
+            deployment.git(),
+            &payload.repository,
+            payload.folder_name.as_deref(),
+            payload.display_name.as_deref(),
+            &token.token,
         )
         .await?;
 
@@ -485,6 +518,7 @@ pub async fn delete_repo(
 pub fn router() -> Router<DeploymentImpl> {
     Router::new()
         .route("/repos", get(get_repos).post(register_repo))
+        .route("/repos/import/github", post(import_github_repo))
         .route("/repos/recent", get(get_recent_repos))
         .route("/repos/init", post(init_repo))
         .route("/repos/batch", post(get_repos_batch))

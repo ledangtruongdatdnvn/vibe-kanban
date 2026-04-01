@@ -30,7 +30,13 @@ export type SettingsSectionGroup = 'host' | 'universal';
 export type SettingsSectionInitialState = {
   general: undefined;
   repos: { repoId?: string } | undefined;
-  organizations: { organizationId?: string } | undefined;
+  organizations:
+    | {
+        organizationId?: string;
+        githubApp?: 'installed';
+        githubAppError?: string;
+      }
+    | undefined;
   'remote-projects':
     | { organizationId?: string; projectId?: string }
     | undefined;
@@ -79,7 +85,13 @@ export function renderSettingsSection(
         />
       );
     case 'organizations':
-      return <OrganizationsSettingsSection />;
+      return (
+        <OrganizationsSettingsSection
+          initialState={
+            initialState as SettingsSectionInitialState['organizations']
+          }
+        />
+      );
     case 'remote-projects':
       return (
         <RemoteProjectsSettingsSection

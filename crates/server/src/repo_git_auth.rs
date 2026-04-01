@@ -119,7 +119,7 @@ pub async fn resolve_repo_git_auth(
         };
     }
 
-    match fetch_github_app_token(deployment, &parsed.repo_full_name).await {
+    match fetch_github_app_repo_access_token(deployment, &parsed.repo_full_name).await {
         Ok(token) => match ensure_git_askpass_script() {
             Ok(script_path) => {
                 git_config_entries.extend(build_github_app_config_entries(&parsed));
@@ -362,7 +362,7 @@ esac
     Ok(path)
 }
 
-async fn fetch_github_app_token(
+pub async fn fetch_github_app_repo_access_token(
     deployment: &DeploymentImpl,
     repo_full_name: &str,
 ) -> Result<api_types::GitHubAppRepoAccessTokenResponse, String> {

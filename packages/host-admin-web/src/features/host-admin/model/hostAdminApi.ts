@@ -3,6 +3,7 @@ import type {
   ApiEnvelope,
   CleanupSummary,
   GitBranch,
+  GitHubRepoImportInput,
   Repo,
   RepoGitAuthStatus,
   SessionResponse,
@@ -156,6 +157,16 @@ export async function deleteWorkspace(
 
 export async function fetchRepos() {
   return requestEnvelope<Repo[]>("/api/repos");
+}
+
+export async function importGitHubRepo(input: GitHubRepoImportInput) {
+  return requestEnvelope<Repo>("/api/repos/import/github", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(input),
+  });
 }
 
 export async function fetchBranches(repoId: string) {

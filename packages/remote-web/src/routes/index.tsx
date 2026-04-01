@@ -6,6 +6,8 @@ import HomePage from "../pages/HomePage";
 
 const searchSchema = z.object({
   legacyOrgSettingsOrgId: z.string().optional(),
+  githubApp: z.enum(["installed"]).optional(),
+  githubAppError: z.string().optional(),
 });
 
 export const Route = createFileRoute("/")({

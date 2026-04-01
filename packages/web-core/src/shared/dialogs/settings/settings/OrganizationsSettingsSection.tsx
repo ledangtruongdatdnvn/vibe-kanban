@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   SpinnerIcon,
@@ -8,8 +8,15 @@ import {
   SignInIcon,
   ArrowSquareOutIcon,
   InfoIcon,
+  GithubLogoIcon,
+  ArrowsClockwiseIcon,
+  LinkBreakIcon,
+  CheckCircleIcon,
+  WarningCircleIcon,
 } from '@phosphor-icons/react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useUserOrganizations } from '@/shared/hooks/useUserOrganizations';
+import { organizationKeys } from '@/shared/hooks/organizationKeys';
 import { useOrganizationSelection } from '@/shared/hooks/useOrganizationSelection';
 import { useOrganizationMembers } from '@/shared/hooks/useOrganizationMembers';
 import { useOrganizationInvitations } from '@/shared/hooks/useOrganizationInvitations';
@@ -28,10 +35,15 @@ import { MemberListItem } from '@/shared/components/org/MemberListItem';
 import { PendingInvitationItem } from '@/shared/components/org/PendingInvitationItem';
 import type { MemberRole } from 'shared/types';
 import { MemberRole as MemberRoleEnum } from 'shared/types';
-import { ApiError, organizationsApi } from '@/shared/lib/api';
+import {
+  ApiError,
+  organizationsApi,
+  type GitHubAppRepositoryDetails,
+} from '@/shared/lib/api';
 import { cn } from '@/shared/lib/utils';
 import { getRemoteApiUrl } from '@/shared/lib/remoteApi';
 import { PrimaryButton } from '@vibe/ui/components/PrimaryButton';
+import { Switch } from '@vibe/ui/components/Switch';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -41,12 +53,63 @@ import {
 } from '@vibe/ui/components/Dropdown';
 import { SettingsCard, SettingsField } from './SettingsComponents';
 
-export function OrganizationsSettingsSection() {
+interface OrganizationsSettingsSectionProps {
+  initialState?: {
+    organizationId?: string;
+    githubApp?: 'installed';
+    githubAppError?: string;
+  };
+}
+
+function formatTimestamp(value?: string | null) {
+  if (!value) return 'Not available';
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(date);
+}
+
+function describeRepositorySelection(selection?: string) {
+  switch (selection) {
+    case 'all':
+      return 'All repositories';
+    case 'selected':
+      return 'Selected repositories';
+    default:
+      return selection || 'Unknown';
+  }
+}
+
+function getGitHubAppErrorMessage(error: unknown) {
+  if (error instanceof ApiError) {
+    if (error.statusCode === 501) {
+      return 'GitHub App is not configured on this server yet.';
+    }
+
+    if (error.statusCode === 404) {
+      return 'GitHub App is not installed for this organization yet.';
+    }
+  }
+
+  return error instanceof Error ? error.message : 'GitHub App request failed';
+}
+
+export function OrganizationsSettingsSection({
+  initialState,
+}: OrganizationsSettingsSectionProps) {
   const { t } = useTranslation('organization');
   const { isSignedIn, isLoaded, userId } = useAuth();
+  const queryClient = useQueryClient();
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [isOpeningBilling, setIsOpeningBilling] = useState(false);
+  const [isOpeningGitHubInstall, setIsOpeningGitHubInstall] = useState(false);
 
   // Fetch all organizations
   const {
@@ -71,6 +134,35 @@ export function OrganizationsSettingsSection() {
   const isAdmin = currentUserRole === MemberRoleEnum.ADMIN;
   const isPersonalOrg = selectedOrg?.is_personal ?? false;
   const currentUserId = userId;
+  const hasRemoteApi = Boolean(getRemoteApiUrl());
+  const canUseGitHubApp =
+    Boolean(selectedOrgId) &&
+    Boolean(selectedOrg) &&
+    !isPersonalOrg &&
+    hasRemoteApi;
+
+  useEffect(() => {
+    if (
+      initialState?.organizationId &&
+      initialState.organizationId !== selectedOrgId
+    ) {
+      handleOrgSelect(initialState.organizationId);
+    }
+  }, [handleOrgSelect, initialState?.organizationId, selectedOrgId]);
+
+  useEffect(() => {
+    if (initialState?.githubApp === 'installed') {
+      setError(null);
+      setSuccess('GitHub App linked successfully');
+      const timeout = window.setTimeout(() => setSuccess(null), 5000);
+      return () => window.clearTimeout(timeout);
+    }
+
+    if (initialState?.githubAppError) {
+      setSuccess(null);
+      setError(initialState.githubAppError);
+    }
+  }, [initialState?.githubApp, initialState?.githubAppError]);
 
   // Fetch members
   const { data: members = [], isLoading: loadingMembers } =
@@ -83,6 +175,100 @@ export function OrganizationsSettingsSection() {
       isAdmin,
       isPersonal: isPersonalOrg,
     });
+
+  const {
+    data: githubAppStatus,
+    isLoading: loadingGitHubAppStatus,
+    error: githubAppStatusError,
+    refetch: refetchGitHubAppStatus,
+  } = useQuery({
+    queryKey: organizationKeys.githubAppStatus(selectedOrgId || ''),
+    queryFn: () => organizationsApi.getGitHubAppStatus(selectedOrgId),
+    enabled: canUseGitHubApp,
+  });
+
+  const syncGitHubAppRepositories = useMutation({
+    mutationFn: (orgId: string) =>
+      organizationsApi.syncGitHubAppRepositories(orgId),
+    onSuccess: async (_repositories, orgId) => {
+      await queryClient.invalidateQueries({
+        queryKey: organizationKeys.githubAppStatus(orgId),
+      });
+      setSuccess('GitHub repositories synced successfully');
+      setTimeout(() => setSuccess(null), 3000);
+    },
+    onError: (err) => {
+      setError(getGitHubAppErrorMessage(err));
+    },
+  });
+
+  const updateGitHubAppRepositoryReview = useMutation({
+    mutationFn: ({
+      orgId,
+      repoId,
+      enabled,
+    }: {
+      orgId: string;
+      repoId: string;
+      enabled: boolean;
+    }) =>
+      organizationsApi.updateGitHubAppRepositoryReviewEnabled(
+        orgId,
+        repoId,
+        enabled
+      ),
+    onSuccess: async (repository, variables) => {
+      await queryClient.invalidateQueries({
+        queryKey: organizationKeys.githubAppStatus(variables.orgId),
+      });
+      setSuccess(
+        `${repository.repo_full_name} review automation ${
+          repository.review_enabled ? 'enabled' : 'disabled'
+        }`
+      );
+      setTimeout(() => setSuccess(null), 3000);
+    },
+    onError: (err) => {
+      setError(getGitHubAppErrorMessage(err));
+    },
+  });
+
+  const updateAllGitHubAppRepositoriesReview = useMutation({
+    mutationFn: ({ orgId, enabled }: { orgId: string; enabled: boolean }) =>
+      organizationsApi.updateGitHubAppAllRepositoriesReviewEnabled(
+        orgId,
+        enabled
+      ),
+    onSuccess: async (result, variables) => {
+      await queryClient.invalidateQueries({
+        queryKey: organizationKeys.githubAppStatus(variables.orgId),
+      });
+      setSuccess(
+        `${
+          variables.enabled ? 'Enabled' : 'Disabled'
+        } review automation for ${result.updated_count} repos`
+      );
+      setTimeout(() => setSuccess(null), 3000);
+    },
+    onError: (err) => {
+      setError(getGitHubAppErrorMessage(err));
+    },
+  });
+
+  const removeGitHubAppInstallation = useMutation({
+    mutationFn: (orgId: string) =>
+      organizationsApi.removeGitHubAppInstallation(orgId),
+    onSuccess: async (_result, orgId) => {
+      await queryClient.invalidateQueries({
+        queryKey: organizationKeys.githubAppStatus(orgId),
+      });
+      setSuccess('GitHub App link removed');
+      setTimeout(() => setSuccess(null), 3000);
+    },
+    onError: (err) => {
+      setError(getGitHubAppErrorMessage(err));
+    },
+  });
 
   // Organization mutations
   const {
@@ -261,6 +447,94 @@ export function OrganizationsSettingsSection() {
       setIsOpeningBilling(false);
     }
   };
+
+  const handleInstallGitHubApp = async () => {
+    if (!selectedOrgId || !isAdmin || isOpeningGitHubInstall) {
+      return;
+    }
+
+    const installTab = window.open('', '_blank');
+    setError(null);
+    setIsOpeningGitHubInstall(true);
+
+    try {
+      const { install_url } =
+        await organizationsApi.getGitHubAppInstallUrl(selectedOrgId);
+
+      if (installTab) {
+        installTab.opener = null;
+        installTab.location.href = install_url;
+      } else {
+        window.open(install_url, '_blank', 'noopener,noreferrer');
+      }
+    } catch (err) {
+      installTab?.close();
+      setError(getGitHubAppErrorMessage(err));
+    } finally {
+      setIsOpeningGitHubInstall(false);
+    }
+  };
+
+  const handleSyncGitHubRepositories = () => {
+    if (!selectedOrgId) {
+      return;
+    }
+
+    setError(null);
+    syncGitHubAppRepositories.mutate(selectedOrgId);
+  };
+
+  const handleRemoveGitHubAppLink = () => {
+    if (!selectedOrgId || !selectedOrg) {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Remove the GitHub App link for ${selectedOrg.name}? This only disconnects Vibe Kanban and does not uninstall the app on GitHub.`
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    setError(null);
+    removeGitHubAppInstallation.mutate(selectedOrgId);
+  };
+
+  const handleRepositoryReviewToggle = (
+    repository: GitHubAppRepositoryDetails,
+    enabled: boolean
+  ) => {
+    if (!selectedOrgId) {
+      return;
+    }
+
+    setError(null);
+    updateGitHubAppRepositoryReview.mutate({
+      orgId: selectedOrgId,
+      repoId: repository.id,
+      enabled,
+    });
+  };
+
+  const handleBulkReviewToggle = (enabled: boolean) => {
+    if (!selectedOrgId) {
+      return;
+    }
+
+    setError(null);
+    updateAllGitHubAppRepositoriesReview.mutate({
+      orgId: selectedOrgId,
+      enabled,
+    });
+  };
+
+  const githubAppInstallation = githubAppStatus?.installation ?? null;
+  const githubRepositories = githubAppStatus?.repositories ?? [];
+  const githubAppInstalled = Boolean(
+    githubAppStatus?.installed && githubAppInstallation
+  );
+  const githubAppSuspended = Boolean(githubAppInstallation?.suspended_at);
+  const githubAppInstallationDetails = githubAppInstallation!;
 
   if (!isLoaded || orgsLoading) {
     return (
@@ -483,6 +757,329 @@ export function OrganizationsSettingsSection() {
                 />
               ))}
             </div>
+          )}
+        </SettingsCard>
+      )}
+
+      {selectedOrg && !isPersonalOrg && hasRemoteApi && (
+        <SettingsCard
+          title="GitHub App"
+          description="Link a GitHub App installation to import repositories and enable managed Git operations on hosts."
+          headerAction={
+            <div className="flex items-center gap-2">
+              {githubAppInstalled && (
+                <PrimaryButton
+                  variant="tertiary"
+                  value={
+                    syncGitHubAppRepositories.isPending
+                      ? 'Syncing...'
+                      : 'Sync Repositories'
+                  }
+                  onClick={() => void handleSyncGitHubRepositories()}
+                  disabled={
+                    syncGitHubAppRepositories.isPending ||
+                    loadingGitHubAppStatus
+                  }
+                >
+                  {syncGitHubAppRepositories.isPending ? (
+                    <SpinnerIcon className="size-icon-xs animate-spin" />
+                  ) : (
+                    <ArrowsClockwiseIcon
+                      className="size-icon-xs"
+                      weight="bold"
+                    />
+                  )}
+                </PrimaryButton>
+              )}
+              {isAdmin &&
+                (githubAppInstalled ? (
+                  <PrimaryButton
+                    variant="tertiary"
+                    value="Remove Link"
+                    onClick={() => void handleRemoveGitHubAppLink()}
+                    disabled={removeGitHubAppInstallation.isPending}
+                  >
+                    {removeGitHubAppInstallation.isPending ? (
+                      <SpinnerIcon className="size-icon-xs animate-spin" />
+                    ) : (
+                      <LinkBreakIcon className="size-icon-xs" weight="bold" />
+                    )}
+                  </PrimaryButton>
+                ) : (
+                  <PrimaryButton
+                    variant="secondary"
+                    value="Install GitHub App"
+                    onClick={() => void handleInstallGitHubApp()}
+                    disabled={isOpeningGitHubInstall}
+                  >
+                    {isOpeningGitHubInstall ? (
+                      <SpinnerIcon className="size-icon-xs animate-spin" />
+                    ) : (
+                      <GithubLogoIcon className="size-icon-xs" weight="fill" />
+                    )}
+                  </PrimaryButton>
+                ))}
+            </div>
+          }
+        >
+          {loadingGitHubAppStatus ? (
+            <div className="flex items-center justify-center py-4 gap-2">
+              <SpinnerIcon className="size-icon-sm animate-spin" />
+              <span className="text-sm text-low">
+                Loading GitHub App status...
+              </span>
+            </div>
+          ) : githubAppStatusError ? (
+            <div className="rounded-sm border border-error/50 bg-error/10 p-4 space-y-3">
+              <p className="text-sm text-error">
+                {getGitHubAppErrorMessage(githubAppStatusError)}
+              </p>
+              <PrimaryButton
+                variant="tertiary"
+                value="Retry"
+                onClick={() => void refetchGitHubAppStatus()}
+              >
+                <ArrowsClockwiseIcon className="size-icon-xs" weight="bold" />
+              </PrimaryButton>
+            </div>
+          ) : !githubAppInstalled ? (
+            <div className="rounded-sm border border-dashed border-border bg-secondary/20 p-4 space-y-2">
+              <div className="flex items-center gap-2">
+                <GithubLogoIcon
+                  className="size-icon-sm text-low"
+                  weight="fill"
+                />
+                <span className="text-sm font-medium text-high">
+                  No GitHub App installation linked
+                </span>
+              </div>
+              <p className="text-sm text-low">
+                {isAdmin
+                  ? 'Install the GitHub App on GitHub to import repositories and enable managed Git credentials for hosts.'
+                  : 'Ask an organization admin to install the GitHub App before using GitHub-powered repository import.'}
+              </p>
+            </div>
+          ) : (
+            <>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <span
+                    className={cn(
+                      'inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium',
+                      githubAppSuspended
+                        ? 'bg-warning/15 text-warning'
+                        : 'bg-success/15 text-success'
+                    )}
+                  >
+                    {githubAppSuspended ? (
+                      <WarningCircleIcon
+                        className="size-icon-xs"
+                        weight="fill"
+                      />
+                    ) : (
+                      <CheckCircleIcon className="size-icon-xs" weight="fill" />
+                    )}
+                    {githubAppSuspended ? 'Suspended' : 'Connected'}
+                  </span>
+                  <span className="text-sm text-low">
+                    {githubAppInstallationDetails.github_account_login}
+                  </span>
+                </div>
+                <span className="text-sm text-low">
+                  {githubRepositories.length} repos cached
+                </span>
+              </div>
+
+              {githubAppSuspended && (
+                <div className="rounded-sm border border-warning/50 bg-warning/10 p-4">
+                  <p className="text-sm font-medium text-high">
+                    GitHub installation access is suspended
+                  </p>
+                  <p className="mt-1 text-sm text-low">
+                    Resume the installation on GitHub, then sync repositories
+                    again.
+                  </p>
+                </div>
+              )}
+
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                <div className="rounded-sm border border-border bg-panel p-3">
+                  <p className="text-xs uppercase tracking-wide text-low">
+                    GitHub account
+                  </p>
+                  <p className="mt-1 text-sm font-medium text-high break-all">
+                    {githubAppInstallationDetails.github_account_login}
+                  </p>
+                  <p className="mt-1 text-xs text-low">
+                    {githubAppInstallationDetails.github_account_type}
+                  </p>
+                </div>
+                <div className="rounded-sm border border-border bg-panel p-3">
+                  <p className="text-xs uppercase tracking-wide text-low">
+                    Repository access
+                  </p>
+                  <p className="mt-1 text-sm font-medium text-high">
+                    {describeRepositorySelection(
+                      githubAppInstallationDetails.repository_selection
+                    )}
+                  </p>
+                  <p className="mt-1 text-xs text-low">
+                    Sync after changing repository grants on GitHub.
+                  </p>
+                </div>
+                <div className="rounded-sm border border-border bg-panel p-3">
+                  <p className="text-xs uppercase tracking-wide text-low">
+                    Linked at
+                  </p>
+                  <p className="mt-1 text-sm font-medium text-high">
+                    {formatTimestamp(githubAppInstallationDetails.created_at)}
+                  </p>
+                </div>
+                <div className="rounded-sm border border-border bg-panel p-3">
+                  <p className="text-xs uppercase tracking-wide text-low">
+                    Suspended at
+                  </p>
+                  <p className="mt-1 text-sm font-medium text-high">
+                    {formatTimestamp(githubAppInstallationDetails.suspended_at)}
+                  </p>
+                </div>
+              </div>
+
+              {isAdmin && githubRepositories.length > 0 && (
+                <div className="flex flex-col gap-3 rounded-sm border border-border bg-secondary/20 p-4 lg:flex-row lg:items-center lg:justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-high">
+                      Pull request review automation
+                    </p>
+                    <p className="mt-1 text-sm text-low">
+                      Toggle review defaults per repository or update them in
+                      bulk.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <PrimaryButton
+                      variant="tertiary"
+                      value="Enable All"
+                      onClick={() => void handleBulkReviewToggle(true)}
+                      disabled={updateAllGitHubAppRepositoriesReview.isPending}
+                    >
+                      {updateAllGitHubAppRepositoriesReview.isPending &&
+                      updateAllGitHubAppRepositoriesReview.variables
+                        ?.enabled === true ? (
+                        <SpinnerIcon className="size-icon-xs animate-spin" />
+                      ) : (
+                        <CheckCircleIcon
+                          className="size-icon-xs"
+                          weight="fill"
+                        />
+                      )}
+                    </PrimaryButton>
+                    <PrimaryButton
+                      variant="tertiary"
+                      value="Disable All"
+                      onClick={() => void handleBulkReviewToggle(false)}
+                      disabled={updateAllGitHubAppRepositoriesReview.isPending}
+                    >
+                      {updateAllGitHubAppRepositoriesReview.isPending &&
+                      updateAllGitHubAppRepositoriesReview.variables
+                        ?.enabled === false ? (
+                        <SpinnerIcon className="size-icon-xs animate-spin" />
+                      ) : (
+                        <WarningCircleIcon
+                          className="size-icon-xs"
+                          weight="fill"
+                        />
+                      )}
+                    </PrimaryButton>
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-3">
+                <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-high">
+                      Repositories
+                    </p>
+                    <p className="text-sm text-low">
+                      {githubAppInstallationDetails.repository_selection ===
+                      'selected'
+                        ? 'Grant more repositories on GitHub and sync again if a repo is missing here.'
+                        : 'Repository access is controlled by the linked GitHub App installation.'}
+                    </p>
+                  </div>
+                </div>
+
+                {githubRepositories.length === 0 ? (
+                  <div className="rounded-sm border border-dashed border-border p-4 text-sm text-low">
+                    No repositories are cached yet. Sync repositories to load
+                    the latest GitHub grants for this organization.
+                  </div>
+                ) : (
+                  <div className="max-h-72 space-y-2 overflow-y-auto pr-1">
+                    {githubRepositories.map((repository) => {
+                      const repoTogglePending =
+                        updateGitHubAppRepositoryReview.isPending &&
+                        updateGitHubAppRepositoryReview.variables?.repoId ===
+                          repository.id;
+
+                      return (
+                        <div
+                          key={repository.id}
+                          className="flex flex-col gap-3 rounded-sm border border-border bg-panel p-3 sm:flex-row sm:items-center sm:justify-between"
+                        >
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-medium text-high">
+                              {repository.repo_full_name}
+                            </p>
+                            <p className="mt-1 text-xs text-low">
+                              GitHub repo ID {repository.github_repo_id}
+                            </p>
+                          </div>
+
+                          {isAdmin ? (
+                            <div className="flex items-center gap-3 sm:shrink-0">
+                              <span className="text-xs text-low">
+                                PR review
+                              </span>
+                              {repoTogglePending && (
+                                <SpinnerIcon className="size-icon-xs animate-spin text-low" />
+                              )}
+                              <Switch
+                                checked={repository.review_enabled}
+                                onCheckedChange={(checked) =>
+                                  void handleRepositoryReviewToggle(
+                                    repository,
+                                    checked
+                                  )
+                                }
+                                disabled={
+                                  repoTogglePending ||
+                                  updateAllGitHubAppRepositoriesReview.isPending
+                                }
+                              />
+                            </div>
+                          ) : (
+                            <span
+                              className={cn(
+                                'inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium sm:shrink-0',
+                                repository.review_enabled
+                                  ? 'bg-success/15 text-success'
+                                  : 'bg-secondary text-low'
+                              )}
+                            >
+                              {repository.review_enabled
+                                ? 'Review enabled'
+                                : 'Review disabled'}
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </>
           )}
         </SettingsCard>
       )}

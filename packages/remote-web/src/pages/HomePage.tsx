@@ -65,11 +65,17 @@ export default function HomePage() {
 
   useEffect(() => {
     const legacyOrgId = search.legacyOrgSettingsOrgId;
-    if (!legacyOrgId) {
+    const githubApp = search.githubApp;
+    const githubAppError = search.githubAppError;
+
+    if (!legacyOrgId && !githubApp && !githubAppError) {
       return;
     }
 
-    setSelectedOrgId(legacyOrgId);
+    if (legacyOrgId) {
+      setSelectedOrgId(legacyOrgId);
+    }
+
     navigate({
       to: "/",
       search: {},
@@ -78,9 +84,19 @@ export default function HomePage() {
 
     void SettingsDialog.show({
       initialSection: "organizations",
-      initialState: { organizationId: legacyOrgId },
+      initialState: {
+        organizationId: legacyOrgId,
+        githubApp,
+        githubAppError,
+      },
     });
-  }, [navigate, search.legacyOrgSettingsOrgId, setSelectedOrgId]);
+  }, [
+    navigate,
+    search.githubApp,
+    search.githubAppError,
+    search.legacyOrgSettingsOrgId,
+    setSelectedOrgId,
+  ]);
 
   const handleSignInAgain = async () => {
     await clearTokens();
