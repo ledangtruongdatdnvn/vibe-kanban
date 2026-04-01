@@ -27,7 +27,7 @@ module.exports = {
     './components/**/*.{ts,tsx}',
     './app/**/*.{ts,tsx}',
     './src/**/*.{ts,tsx}',
-    '../host-admin-web/src/**/*.{ts,tsx}',
+    '../admin/src/**/*.{ts,tsx}',
     '../web-core/src/**/*.{ts,tsx}',
     '../remote-web/src/**/*.{ts,tsx}',
     '../ui/src/**/*.{ts,tsx}',
