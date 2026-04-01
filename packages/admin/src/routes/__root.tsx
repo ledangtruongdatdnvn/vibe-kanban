@@ -12,7 +12,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@vibe/ui/components/Card";
-import { Badge } from "@vibe/ui/components/Badge";
 import {
   fetchRepos,
   fetchSession,
@@ -252,58 +251,36 @@ function RootLayout() {
 
   return (
     <Shell onLogout={handleLogout}>
-      <Card className="overflow-hidden border border-border bg-panel/95 backdrop-blur-sm">
-        <CardContent className="grid gap-double !p-double lg:grid-cols-[minmax(0,1.45fr)_minmax(20rem,0.95fr)]">
-          <div className="flex flex-col gap-base">
-            <div className="flex flex-wrap items-center gap-half">
-              <h1 className="text-2xl font-semibold text-high">Host Admin</h1>
-              <Badge variant="outline">start when needed</Badge>
-              <Badge variant="outline">turn off when done</Badge>
-            </div>
-            <p className="max-w-[48rem] text-base leading-relaxed text-low">
-              Manage saved credentials, workspace lifecycle cleanup, safe branch
-              deletion, and authenticated repo terminals through the same host
-              backend the app already uses.
-            </p>
-            <div className="flex flex-wrap gap-half text-sm text-low">
-              <Badge variant="secondary">Shared-secret login</Badge>
-              <Badge variant="secondary">Cookie session</Badge>
-              <Badge variant="secondary">Proxy to host on safe actions</Badge>
-              <Badge variant="secondary">Repo terminal passthrough</Badge>
-            </div>
-          </div>
-          <div className="grid gap-half sm:grid-cols-2">
-            <OverviewCard
-              label="Saved credentials"
-              value={`${savedCredentialsCount}/2`}
-              detail="Claude and Codex volumes"
-            />
-            <OverviewCard
-              label="Worktree disk"
-              value={
-                workspaceUsageLoading && !workspaceUsage
-                  ? "Loading…"
-                  : formatBytes(workspaceUsage?.total_bytes ?? 0)
-              }
-              detail={
-                workspaceUsage
-                  ? `${workspaceUsage.existing_workspace_count}/${workspaceUsage.workspace_count} workspace dirs present`
-                  : "—"
-              }
-            />
-            <OverviewCard
-              label="Registered repos"
-              value={String(repos.length)}
-              detail="Repos available for branch cleanup"
-            />
-            <OverviewCard
-              label="Visible local branches"
-              value="—"
-              detail="Select a repo in Branches"
-            />
-          </div>
-        </CardContent>
-      </Card>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <OverviewCard
+          label="Saved credentials"
+          value={`${savedCredentialsCount}/2`}
+          detail="Claude and Codex volumes"
+        />
+        <OverviewCard
+          label="Worktree disk"
+          value={
+            workspaceUsageLoading && !workspaceUsage
+              ? "Loading…"
+              : formatBytes(workspaceUsage?.total_bytes ?? 0)
+          }
+          detail={
+            workspaceUsage
+              ? `${workspaceUsage.existing_workspace_count}/${workspaceUsage.workspace_count} workspace dirs present`
+              : "—"
+          }
+        />
+        <OverviewCard
+          label="Registered repos"
+          value={String(repos.length)}
+          detail="Repos available for branch cleanup"
+        />
+        <OverviewCard
+          label="Visible local branches"
+          value="—"
+          detail="Select a repo in Branches"
+        />
+      </div>
 
       <div className="grid gap-double lg:grid-cols-[16rem_minmax(0,1fr)] lg:items-start">
         <Card className="border border-border bg-panel/95 backdrop-blur-sm lg:sticky lg:top-double">

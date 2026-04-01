@@ -19,7 +19,7 @@ export function Shell({
   const isLightTheme = theme === ThemeMode.LIGHT;
 
   return (
-    <main className="min-h-screen bg-primary px-double py-double sm:px-[2rem] sm:py-[2.5rem]">
+    <main className="min-h-screen bg-primary p-4">
       <div
         className={cn(
           "mx-auto flex w-full flex-col gap-double",
