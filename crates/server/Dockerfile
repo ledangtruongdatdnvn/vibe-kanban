@@ -132,15 +132,18 @@ FROM node:20-bookworm-slim
 
 RUN apt-get update \
   && apt-get install -y --no-install-recommends \
-       ca-certificates libssl3 wget curl git git-lfs openssh-client \
+       ca-certificates libssl3 wget curl git git-lfs openssh-client gosu \
   && git lfs install --system \
   && rm -rf /var/lib/apt/lists/* \
   && mkdir -p /home/node/repos /home/node/.vibe-kanban \
   && chown -R node:node /home/node
 
 COPY --from=builder /app/bin/server /usr/local/bin/vibe-kanban-server
+COPY crates/server/docker-entrypoint.sh /usr/local/bin/vibe-kanban-entrypoint
 
-USER node
+RUN chmod +x /usr/local/bin/vibe-kanban-entrypoint
+
+USER root
 
 WORKDIR /home/node
 
@@ -149,11 +152,13 @@ WORKDIR /home/node
 #   values and are useful when images are built without baked-in URLs.
 ENV BACKEND_PORT=3004 \
     RUST_LOG=info \
-    HOME=/home/node
+    HOME=/home/node \
+    HOST_AUTO_FIX_OWNERSHIP=1
 
 EXPOSE 3004
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=5 \
   CMD ["wget", "--spider", "-q", "http://127.0.0.1:3004/health"]
 
-ENTRYPOINT ["/usr/local/bin/vibe-kanban-server"]
+ENTRYPOINT ["/usr/local/bin/vibe-kanban-entrypoint"]
+CMD ["/usr/local/bin/vibe-kanban-server"]

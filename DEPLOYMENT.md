@@ -100,9 +100,17 @@ docker ps | grep -E "host|relay|remote|host-admin|electric"
 
 ## Step 4 — Prepare Repos Directory
 
-`docker compose up` now runs a one-shot `host-repos-init` service first, which
-creates the bind-mounted repo root and assigns it to the container user
-(`node`, UID/GID `1000:1000`) automatically.
+The host container now auto-fixes repo/data directory ownership on startup
+before dropping privileges to the `node` user. This makes first boot and GitHub
+imports work without a separate init service.
+
+For the cleanest production setup, still prepare the host repo directory before
+deploying the stack:
+
+```bash
+mkdir -p /srv/vibe-kanban/repos
+chown -R 1000:1000 /srv/vibe-kanban/repos
+```
 
 Default host path:
 
@@ -113,11 +121,11 @@ Default host path:
 If you want a different host path, set `HOST_REPOS_DIR=/your/path` in `.env`
 before `docker compose up`.
 
-Optional overrides if your runtime UID/GID differs:
+If your deployment already provisions ownership correctly and you want stricter
+runtime behavior, set:
 
 ```bash
-HOST_REPOS_UID=1000
-HOST_REPOS_GID=1000
+HOST_AUTO_FIX_OWNERSHIP=0
 ```
 
 Then either:
@@ -299,9 +307,9 @@ docker exec -u node <container-name> bash -c \
 
 ### "Permission denied" on git operations
 
-The host repo directory was created with the wrong owner. In a normal
-deployment, `host-repos-init` should correct this automatically on `docker
-compose up`. If ownership is still wrong, fix it manually:
+The host repo directory was created with the wrong owner. The host container
+tries to fix this automatically at startup. If ownership is still wrong, fix it
+on the host:
 ```bash
 chown -R 1000:1000 "${HOST_REPOS_DIR:-/srv/vibe-kanban/repos}"
 ```
