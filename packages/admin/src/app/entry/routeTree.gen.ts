@@ -8,171 +8,161 @@
 // You should NOT make any changes in this file as it will be overwritten.
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
-import { Route as rootRouteImport } from "../../routes/__root";
-import { Route as IndexRouteImport } from "../../routes/index";
-import { Route as CredentialsRouteImport } from "../../routes/credentials";
-import { Route as WorkspacesRouteImport } from "../../routes/workspaces";
-import { Route as BranchesRouteImport } from "../../routes/branches";
-import { Route as TerminalRouteImport } from "../../routes/terminal";
-import { Route as CleanupRouteImport } from "../../routes/cleanup";
-
-declare module "@tanstack/react-router" {
-  interface FileRoutesByPath {
-    "/": {
-      id: "/";
-      path: "/";
-      fullPath: "/";
-      preLoaderRoute: typeof IndexRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/credentials": {
-      id: "/credentials";
-      path: "/credentials";
-      fullPath: "/credentials";
-      preLoaderRoute: typeof CredentialsRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/workspaces": {
-      id: "/workspaces";
-      path: "/workspaces";
-      fullPath: "/workspaces";
-      preLoaderRoute: typeof WorkspacesRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/branches": {
-      id: "/branches";
-      path: "/branches";
-      fullPath: "/branches";
-      preLoaderRoute: typeof BranchesRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/terminal": {
-      id: "/terminal";
-      path: "/terminal";
-      fullPath: "/terminal";
-      preLoaderRoute: typeof TerminalRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/cleanup": {
-      id: "/cleanup";
-      path: "/cleanup";
-      fullPath: "/cleanup";
-      preLoaderRoute: typeof CleanupRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-  }
-}
-
-const IndexRoute = IndexRouteImport.update({
-  id: "/",
-  path: "/",
-  getParentRoute: () => rootRouteImport,
-} as any);
-
-const CredentialsRoute = CredentialsRouteImport.update({
-  id: "/credentials",
-  path: "/credentials",
-  getParentRoute: () => rootRouteImport,
-} as any);
+import { Route as rootRouteImport } from './../../routes/__root'
+import { Route as WorkspacesRouteImport } from './../../routes/workspaces'
+import { Route as TerminalRouteImport } from './../../routes/terminal'
+import { Route as CredentialsRouteImport } from './../../routes/credentials'
+import { Route as CleanupRouteImport } from './../../routes/cleanup'
+import { Route as BranchesRouteImport } from './../../routes/branches'
+import { Route as IndexRouteImport } from './../../routes/index'
 
 const WorkspacesRoute = WorkspacesRouteImport.update({
-  id: "/workspaces",
-  path: "/workspaces",
+  id: '/workspaces',
+  path: '/workspaces',
   getParentRoute: () => rootRouteImport,
-} as any);
-
-const BranchesRoute = BranchesRouteImport.update({
-  id: "/branches",
-  path: "/branches",
-  getParentRoute: () => rootRouteImport,
-} as any);
-
+} as any)
 const TerminalRoute = TerminalRouteImport.update({
-  id: "/terminal",
-  path: "/terminal",
+  id: '/terminal',
+  path: '/terminal',
   getParentRoute: () => rootRouteImport,
-} as any);
-
+} as any)
+const CredentialsRoute = CredentialsRouteImport.update({
+  id: '/credentials',
+  path: '/credentials',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CleanupRoute = CleanupRouteImport.update({
-  id: "/cleanup",
-  path: "/cleanup",
+  id: '/cleanup',
+  path: '/cleanup',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
+const BranchesRoute = BranchesRouteImport.update({
+  id: '/branches',
+  path: '/branches',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
-  "/": typeof IndexRoute;
-  "/credentials": typeof CredentialsRoute;
-  "/workspaces": typeof WorkspacesRoute;
-  "/branches": typeof BranchesRoute;
-  "/terminal": typeof TerminalRoute;
-  "/cleanup": typeof CleanupRoute;
+  '/': typeof IndexRoute
+  '/branches': typeof BranchesRoute
+  '/cleanup': typeof CleanupRoute
+  '/credentials': typeof CredentialsRoute
+  '/terminal': typeof TerminalRoute
+  '/workspaces': typeof WorkspacesRoute
 }
-
 export interface FileRoutesByTo {
-  "/": typeof IndexRoute;
-  "/credentials": typeof CredentialsRoute;
-  "/workspaces": typeof WorkspacesRoute;
-  "/branches": typeof BranchesRoute;
-  "/terminal": typeof TerminalRoute;
-  "/cleanup": typeof CleanupRoute;
+  '/': typeof IndexRoute
+  '/branches': typeof BranchesRoute
+  '/cleanup': typeof CleanupRoute
+  '/credentials': typeof CredentialsRoute
+  '/terminal': typeof TerminalRoute
+  '/workspaces': typeof WorkspacesRoute
 }
-
 export interface FileRoutesById {
-  __root__: typeof rootRouteImport;
-  "/": typeof IndexRoute;
-  "/credentials": typeof CredentialsRoute;
-  "/workspaces": typeof WorkspacesRoute;
-  "/branches": typeof BranchesRoute;
-  "/terminal": typeof TerminalRoute;
-  "/cleanup": typeof CleanupRoute;
+  __root__: typeof rootRouteImport
+  '/': typeof IndexRoute
+  '/branches': typeof BranchesRoute
+  '/cleanup': typeof CleanupRoute
+  '/credentials': typeof CredentialsRoute
+  '/terminal': typeof TerminalRoute
+  '/workspaces': typeof WorkspacesRoute
 }
-
 export interface FileRouteTypes {
-  fileRoutesByFullPath: FileRoutesByFullPath;
+  fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    | "/"
-    | "/credentials"
-    | "/workspaces"
-    | "/branches"
-    | "/terminal"
-    | "/cleanup";
-  fileRoutesByTo: FileRoutesByTo;
+    | '/'
+    | '/branches'
+    | '/cleanup'
+    | '/credentials'
+    | '/terminal'
+    | '/workspaces'
+  fileRoutesByTo: FileRoutesByTo
   to:
-    | "/"
-    | "/credentials"
-    | "/workspaces"
-    | "/branches"
-    | "/terminal"
-    | "/cleanup";
+    | '/'
+    | '/branches'
+    | '/cleanup'
+    | '/credentials'
+    | '/terminal'
+    | '/workspaces'
   id:
-    | "__root__"
-    | "/"
-    | "/credentials"
-    | "/workspaces"
-    | "/branches"
-    | "/terminal"
-    | "/cleanup";
-  fileRoutesById: FileRoutesById;
+    | '__root__'
+    | '/'
+    | '/branches'
+    | '/cleanup'
+    | '/credentials'
+    | '/terminal'
+    | '/workspaces'
+  fileRoutesById: FileRoutesById
+}
+export interface RootRouteChildren {
+  IndexRoute: typeof IndexRoute
+  BranchesRoute: typeof BranchesRoute
+  CleanupRoute: typeof CleanupRoute
+  CredentialsRoute: typeof CredentialsRoute
+  TerminalRoute: typeof TerminalRoute
+  WorkspacesRoute: typeof WorkspacesRoute
 }
 
-export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute;
-  CredentialsRoute: typeof CredentialsRoute;
-  WorkspacesRoute: typeof WorkspacesRoute;
-  BranchesRoute: typeof BranchesRoute;
-  TerminalRoute: typeof TerminalRoute;
-  CleanupRoute: typeof CleanupRoute;
+declare module '@tanstack/react-router' {
+  interface FileRoutesByPath {
+    '/workspaces': {
+      id: '/workspaces'
+      path: '/workspaces'
+      fullPath: '/workspaces'
+      preLoaderRoute: typeof WorkspacesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/terminal': {
+      id: '/terminal'
+      path: '/terminal'
+      fullPath: '/terminal'
+      preLoaderRoute: typeof TerminalRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/credentials': {
+      id: '/credentials'
+      path: '/credentials'
+      fullPath: '/credentials'
+      preLoaderRoute: typeof CredentialsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/cleanup': {
+      id: '/cleanup'
+      path: '/cleanup'
+      fullPath: '/cleanup'
+      preLoaderRoute: typeof CleanupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/branches': {
+      id: '/branches'
+      path: '/branches'
+      fullPath: '/branches'
+      preLoaderRoute: typeof BranchesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+  }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  CredentialsRoute: CredentialsRoute,
-  WorkspacesRoute: WorkspacesRoute,
   BranchesRoute: BranchesRoute,
-  TerminalRoute: TerminalRoute,
   CleanupRoute: CleanupRoute,
-};
-
+  CredentialsRoute: CredentialsRoute,
+  TerminalRoute: TerminalRoute,
+  WorkspacesRoute: WorkspacesRoute,
+}
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
-  ._addFileTypes<FileRouteTypes>();
+  ._addFileTypes<FileRouteTypes>()

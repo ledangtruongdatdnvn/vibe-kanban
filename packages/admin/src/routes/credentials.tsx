@@ -21,7 +21,7 @@ import { CredentialsSection } from "@admin/features/admin/ui/CredentialsSection"
 import { PageHeader } from "@admin/features/admin/ui/PageHeader";
 
 function CredentialsRoute() {
-  const { onLogout } = useContext(AdminContext);
+  const { onLogout, refreshOverview } = useContext(AdminContext);
   const tabMeta = TABS.find((t) => t.id === "credentials")!;
 
   const [statusByTool, setStatusByTool] =
@@ -89,6 +89,7 @@ function CredentialsRoute() {
       setToolMessage(tool, { kind: "success", text: `✓ ${data.message}` });
       setToolValue(tool, "");
       await refreshCredentialStatus();
+      refreshOverview();
     } catch (error) {
       setToolMessage(tool, {
         kind: "error",
@@ -112,6 +113,7 @@ function CredentialsRoute() {
         setToolValue(t, "");
       }
       await refreshCredentialStatus();
+      refreshOverview();
     } catch (error) {
       for (const t of targetTools) {
         setToolMessage(t, {

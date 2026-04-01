@@ -13,7 +13,7 @@ import { PageHeader } from "@admin/features/admin/ui/PageHeader";
 import { WorkspacesSection } from "@admin/features/admin/ui/WorkspacesSection";
 
 function WorkspacesRoute() {
-  const { onLogout } = useContext(AdminContext);
+  const { onLogout, refreshOverview } = useContext(AdminContext);
   const tabMeta = TABS.find((t) => t.id === "workspaces")!;
 
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
@@ -100,6 +100,7 @@ function WorkspacesRoute() {
         text: `Workspace "${workspaceLabel}" queued for deletion.`,
       });
       await Promise.all([refreshWorkspaces(), refreshWorkspaceUsage()]);
+      refreshOverview();
     } catch (error) {
       setWorkspaceMessage({
         kind: "error",
