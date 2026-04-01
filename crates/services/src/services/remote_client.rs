@@ -7,7 +7,8 @@ use api_types::{
     CreateInvitationResponse, CreateIssueAssigneeRequest, CreateIssueRelationshipRequest,
     CreateIssueRequest, CreateIssueTagRequest, CreateOrganizationRequest,
     CreateOrganizationResponse, CreateWorkspaceRequest, DeleteResponse, DeleteWorkspaceRequest,
-    GetInvitationResponse, GetOrganizationResponse, HandoffInitRequest, HandoffInitResponse,
+    GetInvitationResponse, GetOrganizationResponse, GitHubAppRepoAccessTokenRequest,
+    GitHubAppRepoAccessTokenResponse, HandoffInitRequest, HandoffInitResponse,
     HandoffRedeemRequest, HandoffRedeemResponse, Issue, IssueAssignee, IssueRelationship, IssueTag,
     ListAttachmentsResponse, ListInvitationsResponse, ListIssueAssigneesResponse,
     ListIssueRelationshipsResponse, ListIssueTagsResponse, ListIssuesResponse, ListMembersResponse,
@@ -561,6 +562,18 @@ impl RemoteClient {
     /// Deletes an organization.
     pub async fn delete_organization(&self, org_id: Uuid) -> Result<(), RemoteClientError> {
         self.delete_authed(&format!("/v1/organizations/{org_id}"))
+            .await
+    }
+
+    pub async fn get_github_app_repo_access_token(
+        &self,
+        repo_full_name: &str,
+    ) -> Result<GitHubAppRepoAccessTokenResponse, RemoteClientError> {
+        let request = GitHubAppRepoAccessTokenRequest {
+            repo_full_name: repo_full_name.to_string(),
+        };
+
+        self.post_authed("/v1/github-app/repository-access-token", Some(&request))
             .await
     }
 

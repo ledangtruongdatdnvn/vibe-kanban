@@ -56,6 +56,17 @@ export type GitBranch = {
   last_commit_date: string;
 };
 
+export type RepoGitAuthStatus = {
+  remote_name: string | null;
+  remote_url: string | null;
+  https_remote_url: string | null;
+  repo_full_name: string | null;
+  provider: string;
+  auth_mode: string;
+  ready: boolean;
+  message: string;
+};
+
 export type CleanupSummary = {
   orphan_cleanup_disabled: boolean;
   repos_checked: number;

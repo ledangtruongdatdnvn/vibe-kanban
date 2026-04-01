@@ -4,6 +4,7 @@ import type {
   CleanupSummary,
   GitBranch,
   Repo,
+  RepoGitAuthStatus,
   SessionResponse,
   StatusResponse,
   Tool,
@@ -159,6 +160,10 @@ export async function fetchRepos() {
 
 export async function fetchBranches(repoId: string) {
   return requestEnvelope<GitBranch[]>(`/api/repos/${repoId}/branches`);
+}
+
+export async function fetchRepoGitAuthStatus(repoId: string) {
+  return requestEnvelope<RepoGitAuthStatus>(`/api/repos/${repoId}/git-auth`);
 }
 
 export async function deleteBranch(repoId: string, branchName: string) {

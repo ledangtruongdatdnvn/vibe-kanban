@@ -18,7 +18,11 @@ use ts_rs::TS;
 use utils::response::ApiResponse;
 use uuid::Uuid;
 
-use crate::{DeploymentImpl, error::ApiError};
+use crate::{
+    DeploymentImpl,
+    error::ApiError,
+    repo_git_auth::{RepoGitAuthStatus, resolve_repo_git_auth},
+};
 
 #[derive(serde::Deserialize)]
 pub struct OpenEditorRequest {
@@ -204,6 +208,19 @@ pub async fn get_repo_remotes(
 
     let remotes = deployment.git().list_remotes(&repo.path)?;
     Ok(ResponseJson(ApiResponse::success(remotes)))
+}
+
+pub async fn get_repo_git_auth_status(
+    State(deployment): State<DeploymentImpl>,
+    Path(repo_id): Path<Uuid>,
+) -> Result<ResponseJson<ApiResponse<RepoGitAuthStatus>>, ApiError> {
+    let repo = deployment
+        .repo()
+        .get_by_id(&deployment.db().pool, repo_id)
+        .await?;
+
+    let auth = resolve_repo_git_auth(&deployment, &repo).await;
+    Ok(ResponseJson(ApiResponse::success(auth.status)))
 }
 
 pub async fn get_repos_batch(
@@ -481,6 +498,7 @@ pub fn router() -> Router<DeploymentImpl> {
             delete(delete_repo_branch),
         )
         .route("/repos/{repo_id}/remotes", get(get_repo_remotes))
+        .route("/repos/{repo_id}/git-auth", get(get_repo_git_auth_status))
         .route("/repos/{repo_id}/prs", get(list_open_prs))
         .route("/repos/pr-info", get(get_pr_info))
         .route("/repos/{repo_id}/search", get(search_repo))

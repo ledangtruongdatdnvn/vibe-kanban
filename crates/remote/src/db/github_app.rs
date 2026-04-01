@@ -203,6 +203,49 @@ impl<'a> GitHubAppRepository2<'a> {
         Ok(installation)
     }
 
+    pub async fn get_installation_for_repo_full_name(
+        &self,
+        repo_full_name: &str,
+    ) -> Result<Option<GitHubAppInstallation>, GitHubAppDbError> {
+        let owner = repo_full_name.split('/').next().unwrap_or(repo_full_name);
+        let installation = sqlx::query_as::<_, GitHubAppInstallation>(
+            r#"
+            SELECT
+                i.id,
+                i.organization_id,
+                i.github_installation_id,
+                i.github_account_login,
+                i.github_account_type,
+                i.repository_selection,
+                i.installed_by_user_id,
+                i.suspended_at,
+                i.created_at,
+                i.updated_at
+            FROM github_app_installations i
+            LEFT JOIN github_app_repositories r
+              ON r.installation_id = i.id
+            WHERE LOWER(r.repo_full_name) = LOWER($1)
+               OR (
+                    i.repository_selection = 'all'
+                AND LOWER(i.github_account_login) = LOWER($2)
+               )
+            ORDER BY
+                CASE
+                    WHEN LOWER(r.repo_full_name) = LOWER($1) THEN 0
+                    ELSE 1
+                END,
+                i.updated_at DESC
+            LIMIT 1
+            "#,
+        )
+        .bind(repo_full_name)
+        .bind(owner)
+        .fetch_optional(self.pool)
+        .await?;
+
+        Ok(installation)
+    }
+
     pub async fn delete_by_github_id(
         &self,
         github_installation_id: i64,

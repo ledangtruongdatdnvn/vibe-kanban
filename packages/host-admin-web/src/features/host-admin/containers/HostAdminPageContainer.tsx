@@ -6,6 +6,7 @@ import {
   deleteBranch,
   deleteWorkspace,
   fetchBranches,
+  fetchRepoGitAuthStatus,
   fetchRepos,
   fetchSession,
   fetchStatus,
@@ -26,6 +27,7 @@ import {
 import type {
   GitBranch,
   Repo,
+  RepoGitAuthStatus,
   SessionResponse,
   Tab,
   Tool,
@@ -80,6 +82,9 @@ export function HostAdminPageContainer() {
   const [deletingBranchName, setDeletingBranchName] = useState<string | null>(
     null,
   );
+  const [repoGitAuthStatus, setRepoGitAuthStatus] =
+    useState<RepoGitAuthStatus | null>(null);
+  const [repoGitAuthLoading, setRepoGitAuthLoading] = useState(false);
 
   const [cleanupMessage, setCleanupMessage] = useState<ToolMessage>(null);
   const [cleanupBusy, setCleanupBusy] = useState<null | "orphans" | "data">(
@@ -148,10 +153,14 @@ export function HostAdminPageContainer() {
   useEffect(() => {
     if (!session?.authenticated || !selectedRepoId) {
       setBranches([]);
+      setRepoGitAuthStatus(null);
       return;
     }
 
-    void refreshBranches(selectedRepoId);
+    void Promise.all([
+      refreshBranches(selectedRepoId),
+      refreshRepoGitAuth(selectedRepoId),
+    ]);
   }, [selectedRepoId, session?.authenticated]);
 
   const refreshSession = async () => {
@@ -253,6 +262,31 @@ export function HostAdminPageContainer() {
     }
   };
 
+  const refreshRepoGitAuth = async (repoId: string) => {
+    setRepoGitAuthLoading(true);
+    setRepoGitAuthStatus(null);
+    try {
+      const { data } = await fetchRepoGitAuthStatus(repoId);
+      setRepoGitAuthStatus(data);
+    } catch (error) {
+      setRepoGitAuthStatus({
+        remote_name: null,
+        remote_url: null,
+        https_remote_url: null,
+        repo_full_name: null,
+        provider: "unknown",
+        auth_mode: "unavailable",
+        ready: false,
+        message:
+          error instanceof Error
+            ? error.message
+            : "Failed to load Git auth status.",
+      });
+    } finally {
+      setRepoGitAuthLoading(false);
+    }
+  };
+
   const setToolValue = (tool: Tool, value: string) => {
     setValueByTool((previous) => ({
       ...previous,
@@ -315,6 +349,7 @@ export function HostAdminPageContainer() {
     setWorkspaceUsageError(null);
     setRepos([]);
     setBranches([]);
+    setRepoGitAuthStatus(null);
   };
 
   const handleSave = async (tool: Tool) => {
@@ -613,6 +648,8 @@ export function HostAdminPageContainer() {
         reposLoading,
         selectedRepoId,
         selectedRepo,
+        gitAuthStatus: repoGitAuthStatus,
+        gitAuthLoading: repoGitAuthLoading,
         onSelectedRepoChange: setSelectedRepoId,
       }}
       cleanupSection={{

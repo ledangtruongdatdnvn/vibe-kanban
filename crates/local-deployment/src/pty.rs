@@ -51,6 +51,17 @@ impl PtyService {
         cols: u16,
         rows: u16,
     ) -> Result<(Uuid, mpsc::UnboundedReceiver<Vec<u8>>), PtyError> {
+        self.create_session_with_env(working_dir, cols, rows, Vec::new())
+            .await
+    }
+
+    pub async fn create_session_with_env(
+        &self,
+        working_dir: PathBuf,
+        cols: u16,
+        rows: u16,
+        extra_env: Vec<(String, String)>,
+    ) -> Result<(Uuid, mpsc::UnboundedReceiver<Vec<u8>>), PtyError> {
         let session_id = Uuid::new_v4();
         let (output_tx, output_rx) = mpsc::unbounded_channel();
         let shell = get_interactive_shell().await;
@@ -93,6 +104,9 @@ impl PtyService {
 
             cmd.env("TERM", "xterm-256color");
             cmd.env("COLORTERM", "truecolor");
+            for (key, value) in &extra_env {
+                cmd.env(key, value);
+            }
 
             let child = pty_pair
                 .slave

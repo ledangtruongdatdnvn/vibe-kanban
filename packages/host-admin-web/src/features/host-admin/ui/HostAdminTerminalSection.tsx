@@ -25,7 +25,10 @@ import {
 import { useTheme } from "@/shared/hooks/useTheme";
 import { openLocalApiWebSocket } from "@/shared/lib/localApiTransport";
 import { getTerminalTheme } from "@/shared/lib/terminalTheme";
-import type { Repo } from "@host-admin/features/host-admin/model/hostAdminTypes";
+import type {
+  Repo,
+  RepoGitAuthStatus,
+} from "@host-admin/features/host-admin/model/hostAdminTypes";
 
 type ConnectionState =
   | "idle"
@@ -39,6 +42,8 @@ export type HostAdminTerminalSectionProps = {
   reposLoading: boolean;
   selectedRepoId: string;
   selectedRepo: Repo | null;
+  gitAuthStatus: RepoGitAuthStatus | null;
+  gitAuthLoading: boolean;
   onSelectedRepoChange: (repoId: string) => void;
 };
 
@@ -76,6 +81,8 @@ export function HostAdminTerminalSection({
   reposLoading,
   selectedRepoId,
   selectedRepo,
+  gitAuthStatus,
+  gitAuthLoading,
   onSelectedRepoChange,
 }: HostAdminTerminalSectionProps) {
   const { theme } = useTheme();
@@ -373,6 +380,15 @@ export function HostAdminTerminalSection({
     { label: "log -20", command: "git log --oneline --decorate -20" },
   ];
   const terminalReady = !!selectedRepo && connectionState === "connected";
+  const gitAuthBadgeLabel = gitAuthLoading
+    ? "checking"
+    : gitAuthStatus?.ready
+      ? "github app"
+      : gitAuthStatus?.auth_mode === "https_no_auth"
+        ? "https only"
+        : gitAuthStatus?.auth_mode === "unsupported"
+          ? "unsupported"
+          : "unavailable";
 
   return (
     <Card className="border border-border bg-panel/80">
@@ -456,6 +472,38 @@ export function HostAdminTerminalSection({
                       {selectedRepo.default_target_branch || "main"}
                     </span>
                   </div>
+                  <div className="flex flex-col gap-[0.35rem]">
+                    <div className="flex flex-wrap items-center gap-half">
+                      <span className="text-xs uppercase tracking-[0.16em] text-low">
+                        Git auth
+                      </span>
+                      <Badge variant="outline">{gitAuthBadgeLabel}</Badge>
+                    </div>
+                    <p className="text-sm text-low">
+                      {gitAuthStatus?.message ||
+                        "Select a repo to inspect Git auth readiness."}
+                    </p>
+                  </div>
+                  {gitAuthStatus?.repo_full_name && (
+                    <div className="flex flex-col gap-[0.2rem]">
+                      <span className="text-xs uppercase tracking-[0.16em] text-low">
+                        GitHub repo
+                      </span>
+                      <code className="break-all rounded bg-secondary/80 px-half py-[0.2rem] text-xs text-high">
+                        {gitAuthStatus.repo_full_name}
+                      </code>
+                    </div>
+                  )}
+                  {gitAuthStatus?.https_remote_url && (
+                    <div className="flex flex-col gap-[0.2rem]">
+                      <span className="text-xs uppercase tracking-[0.16em] text-low">
+                        HTTPS remote
+                      </span>
+                      <code className="break-all rounded bg-secondary/80 px-half py-[0.2rem] text-xs text-high">
+                        {gitAuthStatus.https_remote_url}
+                      </code>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <p className="mt-base text-sm text-low">
@@ -476,7 +524,7 @@ export function HostAdminTerminalSection({
                     setSessionKey((value) => value + 1);
                   }}
                 >
-                  Reconnect
+                  Reconnect / Refresh Auth
                 </Button>
               </div>
 

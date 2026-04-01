@@ -1,3 +1,4 @@
+use api_types::{GitHubAppRepoAccessTokenRequest, GitHubAppRepoAccessTokenResponse};
 use axum::{
     Json, Router,
     body::Bytes,
@@ -12,7 +13,7 @@ use serde::{Deserialize, Serialize};
 use tracing::{error, info, warn};
 use uuid::Uuid;
 
-use super::error::ErrorResponse;
+use super::error::{ErrorResponse, membership_error};
 use crate::{
     AppState,
     auth::RequestContext,
@@ -52,6 +53,10 @@ pub(super) fn protected_router() -> Router<AppState> {
         .route(
             "/organizations/{org_id}/github-app/repositories/{repo_id}/review-enabled",
             patch(update_repo_review_enabled),
+        )
+        .route(
+            "/github-app/repository-access-token",
+            post(get_repository_access_token),
         )
         .route("/debug/pr-review/trigger", post(trigger_pr_review))
 }
@@ -409,6 +414,73 @@ async fn fetch_repositories(
             })
             .collect::<Vec<_>>(),
     ))
+}
+
+/// POST /v1/github-app/repository-access-token
+/// Returns a short-lived GitHub App installation token for a repository the user can access.
+async fn get_repository_access_token(
+    State(state): State<AppState>,
+    axum::extract::Extension(ctx): axum::extract::Extension<RequestContext>,
+    Json(payload): Json<GitHubAppRepoAccessTokenRequest>,
+) -> Result<impl IntoResponse, ErrorResponse> {
+    let repo_full_name = payload.repo_full_name.trim();
+    if repo_full_name.is_empty() {
+        return Err(ErrorResponse::new(
+            StatusCode::BAD_REQUEST,
+            "Repository full name is required",
+        ));
+    }
+
+    let github_app = state.github_app().ok_or_else(|| {
+        ErrorResponse::new(StatusCode::NOT_IMPLEMENTED, "GitHub App not configured")
+    })?;
+
+    let gh_repo = GitHubAppRepository2::new(state.pool());
+    let installation = gh_repo
+        .get_installation_for_repo_full_name(repo_full_name)
+        .await
+        .map_err(|e| {
+            error!(
+                ?e,
+                repo_full_name, "Failed to resolve GitHub App installation"
+            );
+            ErrorResponse::new(StatusCode::INTERNAL_SERVER_ERROR, "Database error")
+        })?
+        .ok_or_else(|| {
+            ErrorResponse::new(
+                StatusCode::NOT_FOUND,
+                "GitHub App is not installed for this repository",
+            )
+        })?;
+
+    let org_repo = OrganizationRepository::new(state.pool());
+    org_repo
+        .assert_membership(installation.organization_id, ctx.user.id)
+        .await
+        .map_err(|e| membership_error(e, "Access denied"))?;
+
+    let token = github_app
+        .get_installation_access_token(installation.github_installation_id)
+        .await
+        .map_err(|e| {
+            error!(
+                ?e,
+                repo_full_name,
+                github_installation_id = installation.github_installation_id,
+                "Failed to create GitHub App installation token"
+            );
+            ErrorResponse::new(
+                StatusCode::BAD_GATEWAY,
+                "Failed to create GitHub App installation token",
+            )
+        })?;
+
+    Ok(Json(GitHubAppRepoAccessTokenResponse {
+        organization_id: installation.organization_id,
+        github_installation_id: installation.github_installation_id,
+        token: token.token,
+        expires_at: token.expires_at,
+    }))
 }
 
 /// PATCH /v1/organizations/:org_id/github-app/repositories/review-enabled

@@ -767,6 +767,25 @@ async function handleApi(req, res, url) {
 
   if (
     req.method === "GET" &&
+    /^\/api\/repos\/[^/]+\/git-auth$/.test(url.pathname)
+  ) {
+    const repoId = url.pathname.split("/")[3];
+    try {
+      sendProxyResponse(
+        res,
+        await proxyToHost("GET", `/api/repos/${encodeURIComponent(repoId)}/git-auth`),
+      );
+    } catch (error) {
+      json(res, 502, {
+        error:
+          error instanceof Error ? error.message : "Host service unavailable.",
+      });
+    }
+    return;
+  }
+
+  if (
+    req.method === "GET" &&
     /^\/api\/repos\/[^/]+\/branches$/.test(url.pathname)
   ) {
     const repoId = url.pathname.split("/")[3];

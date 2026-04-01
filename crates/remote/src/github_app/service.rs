@@ -1,3 +1,4 @@
+use chrono::{DateTime, Utc};
 use reqwest::Client;
 use secrecy::SecretString;
 use serde::{Deserialize, Serialize};
@@ -52,10 +53,10 @@ pub struct Repository {
     pub private: bool,
 }
 
-#[derive(Debug, Deserialize)]
-struct InstallationTokenResponse {
-    token: String,
-    expires_at: String,
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct InstallationAccessToken {
+    pub token: String,
+    pub expires_at: DateTime<Utc>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -116,6 +117,17 @@ impl GitHubAppService {
         &self,
         installation_id: i64,
     ) -> Result<String, GitHubAppError> {
+        Ok(self
+            .get_installation_access_token(installation_id)
+            .await?
+            .token)
+    }
+
+    /// Get an installation access token with metadata for making API calls on behalf of an installation
+    pub async fn get_installation_access_token(
+        &self,
+        installation_id: i64,
+    ) -> Result<InstallationAccessToken, GitHubAppError> {
         let jwt = self.jwt_generator.generate()?;
 
         let url = format!(
@@ -143,14 +155,14 @@ impl GitHubAppService {
             return Err(GitHubAppError::Api { status, message });
         }
 
-        let token_response: InstallationTokenResponse = response.json().await?;
+        let token_response: InstallationAccessToken = response.json().await?;
         info!(
             installation_id,
             expires_at = %token_response.expires_at,
             "Got installation access token"
         );
 
-        Ok(token_response.token)
+        Ok(token_response)
     }
 
     /// Get details about a specific installation

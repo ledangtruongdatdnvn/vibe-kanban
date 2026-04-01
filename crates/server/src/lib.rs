@@ -1,6 +1,7 @@
 pub mod error;
 pub mod middleware;
 pub mod relay_pairing;
+mod repo_git_auth;
 pub mod routes;
 pub mod runtime;
 pub mod startup;

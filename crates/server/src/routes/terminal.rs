@@ -16,6 +16,7 @@ use crate::{
     DeploymentImpl,
     error::ApiError,
     middleware::signed_ws::{MaybeSignedWebSocket, SignedWsUpgrade},
+    repo_git_auth::resolve_repo_git_auth,
 };
 
 #[derive(Debug, Deserialize)]
@@ -100,6 +101,8 @@ async fn terminal_ws(
             working_dir,
             query.size.cols,
             query.size.rows,
+            Vec::new(),
+            Vec::new(),
         )
     }))
 }
@@ -115,9 +118,18 @@ async fn repo_terminal_ws(
         .get_by_id(&deployment.db().pool, repo_id)
         .await?;
     let working_dir = repo_terminal_working_dir(&repo)?;
+    let git_auth = resolve_repo_git_auth(&deployment, &repo).await;
 
     Ok(ws.on_upgrade(move |socket| {
-        handle_terminal_ws(socket, deployment, working_dir, query.cols, query.rows)
+        handle_terminal_ws(
+            socket,
+            deployment,
+            working_dir,
+            query.cols,
+            query.rows,
+            git_auth.env,
+            git_auth.notices,
+        )
     }))
 }
 
@@ -146,10 +158,12 @@ async fn handle_terminal_ws(
     working_dir: PathBuf,
     cols: u16,
     rows: u16,
+    env: Vec<(String, String)>,
+    notices: Vec<String>,
 ) {
     let (session_id, mut output_rx) = match deployment
         .pty()
-        .create_session(working_dir, cols, rows)
+        .create_session_with_env(working_dir, cols, rows, env)
         .await
     {
         Ok(result) => result,
@@ -162,6 +176,10 @@ async fn handle_terminal_ws(
 
     let pty_service = deployment.pty().clone();
     let session_id_for_input = session_id;
+
+    for notice in notices {
+        let _ = send_output(&mut socket, format!("{notice}\r\n")).await;
+    }
 
     loop {
         tokio::select! {
@@ -220,6 +238,15 @@ async fn send_error(socket: &mut MaybeSignedWebSocket, message: &str) -> anyhow:
     let json = serde_json::to_string(&msg).unwrap_or_default();
     socket.send(Message::Text(json.into())).await?;
     socket.close().await?;
+    Ok(())
+}
+
+async fn send_output(socket: &mut MaybeSignedWebSocket, data: String) -> anyhow::Result<()> {
+    let msg = TerminalMessage::Output {
+        data: BASE64.encode(data.as_bytes()),
+    };
+    let json = serde_json::to_string(&msg).unwrap_or_default();
+    socket.send(Message::Text(json.into())).await?;
     Ok(())
 }
 
