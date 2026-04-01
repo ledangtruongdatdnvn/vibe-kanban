@@ -22,6 +22,7 @@ import type {
   Tool,
   ToolMessage,
 } from "@host-admin/features/host-admin/model/hostAdminTypes";
+import { HostAdminCopyButton } from "@host-admin/features/host-admin/ui/HostAdminCopyButton";
 
 export type HostAdminCredentialsSectionProps = {
   statusByTool: Record<Tool, string>;
@@ -68,9 +69,12 @@ export function HostAdminCredentialsSection({
               </div>
               <CardDescription className="grid min-h-[7.5rem] content-start gap-half">
                 <p>{config.description}</p>
-                <code className="block rounded border border-border px-half py-half text-xs">
-                  {config.command}
-                </code>
+                <div className="flex items-start gap-half rounded border border-border bg-primary/20 px-half py-half">
+                  <code className="flex-1 whitespace-pre-wrap break-all text-xs text-high">
+                    {config.command}
+                  </code>
+                  <HostAdminCopyButton value={config.command} />
+                </div>
                 {config.hint && <p>{config.hint}</p>}
               </CardDescription>
             </CardHeader>
