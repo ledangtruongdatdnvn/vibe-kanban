@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 import NiceModal, { useModal } from '@ebay/nice-modal-react';
 import { GithubLogoIcon, SpinnerIcon } from '@phosphor-icons/react';
+import type { Repo } from 'shared/types';
 import { Button } from '@vibe/ui/components/Button';
 import { Input } from '@vibe/ui/components/Input';
 import {
@@ -19,12 +20,17 @@ export interface ImportGitHubRepoDialogProps {
     repository: string;
     folderName?: string;
     displayName?: string;
-  }) => Promise<void>;
+  }) => Promise<Repo>;
 }
 
-export type ImportGitHubRepoDialogResult = {
-  action: 'imported' | 'canceled';
-};
+export type ImportGitHubRepoDialogResult =
+  | {
+      action: 'imported';
+      repo: Repo;
+    }
+  | {
+      action: 'canceled';
+    };
 
 const ImportGitHubRepoDialogImpl =
   NiceModal.create<ImportGitHubRepoDialogProps>(({ onImportRepo }) => {
@@ -48,12 +54,12 @@ const ImportGitHubRepoDialogImpl =
       setError(null);
 
       try {
-        await onImportRepo({
+        const repo = await onImportRepo({
           repository: trimmedRepository,
           folderName: folderName.trim() || undefined,
           displayName: displayName.trim() || undefined,
         });
-        modal.resolve({ action: 'imported' } as ImportGitHubRepoDialogResult);
+        modal.resolve({ action: 'imported', repo });
         modal.hide();
       } catch (err) {
         setError(
@@ -67,7 +73,7 @@ const ImportGitHubRepoDialogImpl =
     }, [displayName, folderName, modal, onImportRepo, repository]);
 
     const handleCancel = useCallback(() => {
-      modal.resolve({ action: 'canceled' } as ImportGitHubRepoDialogResult);
+      modal.resolve({ action: 'canceled' });
       modal.hide();
     }, [modal]);
 

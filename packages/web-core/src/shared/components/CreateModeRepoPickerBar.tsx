@@ -239,17 +239,19 @@ export function CreateModeRepoPickerBar({
     await runPickerAction(
       'github',
       async () => {
-        await ImportGitHubRepoDialog.show({
+        const result = await ImportGitHubRepoDialog.show({
           onImportRepo: async ({ repository, folderName, displayName }) => {
-            const repo = await repoApi.importFromGitHub({
+            return repoApi.importFromGitHub({
               repository,
               folder_name: folderName,
               display_name: displayName,
             });
-            queryClient.invalidateQueries({ queryKey: ['repos'] });
-            await addRepoWithBranchSelection(repo);
           },
         });
+        if (!result || result.action !== 'imported') return;
+
+        queryClient.invalidateQueries({ queryKey: ['repos'] });
+        await addRepoWithBranchSelection(result.repo);
       },
       'Failed to import repository from GitHub'
     );
