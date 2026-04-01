@@ -159,9 +159,10 @@ services:
     volumes:
       # Persistent data: SQLite DB, credentials, config, SSH keys
       - host-data:/home/node/.vibe-kanban
-      # Mount a directory where repos will be cloned / worked on.
-      # Clone repos to /root/repos on the server, they appear at /home/node/repos in container.
-      - /root/repos:/home/node/repos
+      # Mount a dedicated host directory where repos will be cloned / worked on.
+      # Default: /srv/vibe-kanban/repos on the server -> /home/node/repos in container.
+      # Override with HOST_REPOS_DIR in .env if you need a different host path.
+      - ${HOST_REPOS_DIR:-/srv/vibe-kanban/repos}:/home/node/repos
       # ── AI subscription credentials (Option B) ──────────────────────────
       # These volumes persist the login state created by `claude login` /
       # `codex login` so you only need to authenticate once.

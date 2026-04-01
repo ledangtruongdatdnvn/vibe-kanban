@@ -103,16 +103,18 @@ docker ps | grep -E "host|relay|remote|host-admin|electric"
 Container runs as user `node` (UID 1000). Run **once** on the server:
 
 ```bash
-mkdir -p /root/repos
-chown -R 1000:1000 /root/repos
+mkdir -p /srv/vibe-kanban/repos
+chown -R 1000:1000 /srv/vibe-kanban/repos
 ```
 
 Then clone your repos:
 ```bash
-git clone https://github.com/your-org/your-repo.git /root/repos/your-repo
+git clone https://github.com/your-org/your-repo.git /srv/vibe-kanban/repos/your-repo
 ```
 
 In Vibe Kanban UI: **New Workspace → path** = `/home/node/repos/your-repo`
+
+If you want a different host path, set `HOST_REPOS_DIR=/your/path` in `.env` before `docker compose up`.
 
 ---
 
@@ -212,7 +214,7 @@ docker logs <host-container-name> --tail 30
 | Volume | Contents | Mount path in HOST |
 |--------|----------|-------------------|
 | `host-data` | SQLite DB, config | `/home/node/.vibe-kanban` |
-| `/root/repos` (bind) | Cloned repos | `/home/node/repos` |
+| `HOST_REPOS_DIR` bind (default `/srv/vibe-kanban/repos`) | Cloned repos | `/home/node/repos` |
 | `claude-credentials` | Claude OAuth token | `/home/node/.claude` |
 | `codex-credentials` | Codex auth token | `/home/node/.codex` |
 
@@ -283,15 +285,17 @@ docker exec -u node <container-name> bash -c \
 
 ### "Permission denied" on git operations
 
-Repos were cloned as root. Fix:
+The host repo directory was created with the wrong owner. Fix:
 ```bash
-chown -R 1000:1000 /root/repos
+chown -R 1000:1000 "${HOST_REPOS_DIR:-/srv/vibe-kanban/repos}"
 ```
 
 ### "repository is not owned by current user" (git safe.directory)
 
+This should not happen in a clean deployment. It means the repo path is owned by the wrong user. Fix ownership on the host instead of whitelisting every repo in git:
+
 ```bash
-docker exec -u node <container-name> git config --global --add safe.directory '*'
+chown -R 1000:1000 "${HOST_REPOS_DIR:-/srv/vibe-kanban/repos}"
 ```
 
 ### "--dangerously-skip-permissions cannot be used with root"

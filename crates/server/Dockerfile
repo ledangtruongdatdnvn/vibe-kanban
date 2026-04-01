@@ -141,10 +141,8 @@ RUN apt-get update \
 COPY --from=builder /app/bin/server /usr/local/bin/vibe-kanban-server
 
 USER node
-WORKDIR /home/node
 
-# Allow git operations on repos owned by other users (e.g. bind-mounted from root on host)
-RUN git config --global --add safe.directory '*'
+WORKDIR /home/node
 
 # Default runtime configuration — override via docker-compose environment:
 #   VK_SHARED_API_BASE / VK_SHARED_RELAY_API_BASE override the compile-time
