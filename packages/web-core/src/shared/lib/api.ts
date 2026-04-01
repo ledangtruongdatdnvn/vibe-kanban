@@ -233,6 +233,21 @@ export interface GitHubAppStatusResponse {
   repositories: GitHubAppRepositoryDetails[];
 }
 
+export interface GitHubAppAvailableInstallationDetails {
+  github_installation_id: number;
+  github_account_login: string;
+  github_account_type: string;
+  repository_selection: string;
+  suspended_at: string | null;
+  linked_organization_id: string | null;
+  linked_organization_name: string | null;
+  linked_to_current_organization: boolean;
+}
+
+export interface GitHubAppAvailableInstallationsResponse {
+  installations: GitHubAppAvailableInstallationDetails[];
+}
+
 export interface GitHubAppInstallUrlResponse {
   install_url: string;
 }
@@ -1540,6 +1555,34 @@ export const organizationsApi = {
       `/v1/organizations/${orgId}/github-app/status`
     );
     return handleRemoteResponse<GitHubAppStatusResponse>(response);
+  },
+
+  listGitHubAppAvailableInstallations: async (
+    orgId: string
+  ): Promise<GitHubAppAvailableInstallationsResponse> => {
+    const response = await makeRemoteRequest(
+      `/v1/organizations/${orgId}/github-app/available-installations`
+    );
+    return handleRemoteResponse<GitHubAppAvailableInstallationsResponse>(
+      response
+    );
+  },
+
+  adoptGitHubAppInstallation: async (
+    orgId: string,
+    githubInstallationId: number
+  ): Promise<void> => {
+    const response = await makeRemoteRequest(
+      `/v1/organizations/${orgId}/github-app/adopt`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          github_installation_id: githubInstallationId,
+        }),
+      }
+    );
+    return handleRemoteResponse<void>(response);
   },
 
   syncGitHubAppRepositories: async (

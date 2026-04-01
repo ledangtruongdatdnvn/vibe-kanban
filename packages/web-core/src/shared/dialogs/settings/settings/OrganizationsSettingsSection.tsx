@@ -38,6 +38,7 @@ import { MemberRole as MemberRoleEnum } from 'shared/types';
 import {
   ApiError,
   organizationsApi,
+  type GitHubAppAvailableInstallationDetails,
   type GitHubAppRepositoryDetails,
 } from '@/shared/lib/api';
 import { cn } from '@/shared/lib/utils';
@@ -110,6 +111,8 @@ export function OrganizationsSettingsSection({
   const [success, setSuccess] = useState<string | null>(null);
   const [isOpeningBilling, setIsOpeningBilling] = useState(false);
   const [isOpeningGitHubInstall, setIsOpeningGitHubInstall] = useState(false);
+  const [showExistingGitHubInstallations, setShowExistingGitHubInstallations] =
+    useState(false);
 
   // Fetch all organizations
   const {
@@ -164,6 +167,10 @@ export function OrganizationsSettingsSection({
     }
   }, [initialState?.githubApp, initialState?.githubAppError]);
 
+  useEffect(() => {
+    setShowExistingGitHubInstallations(false);
+  }, [selectedOrgId]);
+
   // Fetch members
   const { data: members = [], isLoading: loadingMembers } =
     useOrganizationMembers(selectedOrgId);
@@ -185,6 +192,29 @@ export function OrganizationsSettingsSection({
     queryKey: organizationKeys.githubAppStatus(selectedOrgId || ''),
     queryFn: () => organizationsApi.getGitHubAppStatus(selectedOrgId),
     enabled: canUseGitHubApp,
+  });
+  const githubAppInstallation = githubAppStatus?.installation ?? null;
+  const githubRepositories = githubAppStatus?.repositories ?? [];
+  const githubAppInstalled = Boolean(
+    githubAppStatus?.installed && githubAppInstallation
+  );
+
+  const {
+    data: availableGitHubInstallationsResponse,
+    isLoading: loadingAvailableGitHubInstallations,
+    error: availableGitHubInstallationsError,
+    refetch: refetchAvailableGitHubInstallations,
+  } = useQuery({
+    queryKey: organizationKeys.githubAppAvailableInstallations(
+      selectedOrgId || ''
+    ),
+    queryFn: () =>
+      organizationsApi.listGitHubAppAvailableInstallations(selectedOrgId),
+    enabled:
+      canUseGitHubApp &&
+      isAdmin &&
+      !githubAppInstalled &&
+      showExistingGitHubInstallations,
   });
 
   const syncGitHubAppRepositories = useMutation({
@@ -263,6 +293,35 @@ export function OrganizationsSettingsSection({
         queryKey: organizationKeys.githubAppStatus(orgId),
       });
       setSuccess('GitHub App link removed');
+      setTimeout(() => setSuccess(null), 3000);
+    },
+    onError: (err) => {
+      setError(getGitHubAppErrorMessage(err));
+    },
+  });
+
+  const adoptGitHubAppInstallation = useMutation({
+    mutationFn: ({
+      orgId,
+      githubInstallationId,
+    }: {
+      orgId: string;
+      githubInstallationId: number;
+    }) =>
+      organizationsApi.adoptGitHubAppInstallation(orgId, githubInstallationId),
+    onSuccess: async (_result, variables) => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: organizationKeys.githubAppStatus(variables.orgId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: organizationKeys.githubAppAvailableInstallations(
+            variables.orgId
+          ),
+        }),
+      ]);
+      setShowExistingGitHubInstallations(false);
+      setSuccess('GitHub App linked successfully');
       setTimeout(() => setSuccess(null), 3000);
     },
     onError: (err) => {
@@ -475,6 +534,25 @@ export function OrganizationsSettingsSection({
     }
   };
 
+  const handleShowExistingGitHubInstallations = () => {
+    setError(null);
+    setShowExistingGitHubInstallations(true);
+  };
+
+  const handleAdoptGitHubInstallation = (
+    installation: GitHubAppAvailableInstallationDetails
+  ) => {
+    if (!selectedOrgId) {
+      return;
+    }
+
+    setError(null);
+    adoptGitHubAppInstallation.mutate({
+      orgId: selectedOrgId,
+      githubInstallationId: installation.github_installation_id,
+    });
+  };
+
   const handleSyncGitHubRepositories = () => {
     if (!selectedOrgId) {
       return;
@@ -528,11 +606,8 @@ export function OrganizationsSettingsSection({
     });
   };
 
-  const githubAppInstallation = githubAppStatus?.installation ?? null;
-  const githubRepositories = githubAppStatus?.repositories ?? [];
-  const githubAppInstalled = Boolean(
-    githubAppStatus?.installed && githubAppInstallation
-  );
+  const availableGitHubInstallations =
+    availableGitHubInstallationsResponse?.installations ?? [];
   const githubAppSuspended = Boolean(githubAppInstallation?.suspended_at);
   const githubAppInstallationDetails = githubAppInstallation!;
 
@@ -806,18 +881,49 @@ export function OrganizationsSettingsSection({
                     )}
                   </PrimaryButton>
                 ) : (
-                  <PrimaryButton
-                    variant="secondary"
-                    value="Install GitHub App"
-                    onClick={() => void handleInstallGitHubApp()}
-                    disabled={isOpeningGitHubInstall}
-                  >
-                    {isOpeningGitHubInstall ? (
-                      <SpinnerIcon className="size-icon-xs animate-spin" />
-                    ) : (
-                      <GithubLogoIcon className="size-icon-xs" weight="fill" />
-                    )}
-                  </PrimaryButton>
+                  <>
+                    <PrimaryButton
+                      variant="tertiary"
+                      value={
+                        showExistingGitHubInstallations
+                          ? 'Refresh Existing Links'
+                          : 'Link Existing Installation'
+                      }
+                      onClick={() =>
+                        showExistingGitHubInstallations
+                          ? void refetchAvailableGitHubInstallations()
+                          : handleShowExistingGitHubInstallations()
+                      }
+                      disabled={
+                        loadingAvailableGitHubInstallations ||
+                        adoptGitHubAppInstallation.isPending
+                      }
+                    >
+                      {loadingAvailableGitHubInstallations ? (
+                        <SpinnerIcon className="size-icon-xs animate-spin" />
+                      ) : (
+                        <ArrowsClockwiseIcon
+                          className="size-icon-xs"
+                          weight="bold"
+                        />
+                      )}
+                    </PrimaryButton>
+                    <PrimaryButton
+                      variant="secondary"
+                      value="Install GitHub App"
+                      onClick={() => void handleInstallGitHubApp()}
+                      disabled={isOpeningGitHubInstall}
+                    >
+                      {isOpeningGitHubInstall ? (
+                        <SpinnerIcon className="size-icon-xs animate-spin" />
+                      ) : (
+                        <GithubLogoIcon
+                          className="size-icon-xs"
+                          weight="fill"
+                        />
+                      )}
+                    </PrimaryButton>
+                  </>
                 ))}
             </div>
           }
@@ -858,6 +964,122 @@ export function OrganizationsSettingsSection({
                   ? 'Install the GitHub App on GitHub to import repositories and enable managed Git credentials for hosts.'
                   : 'Ask an organization admin to install the GitHub App before using GitHub-powered repository import.'}
               </p>
+              {isAdmin && showExistingGitHubInstallations && (
+                <div className="mt-4 space-y-3 border-t border-border/60 pt-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-sm font-medium text-high">
+                      Existing GitHub installations
+                    </p>
+                    <span className="text-xs text-low">
+                      Use this when the app is already installed on GitHub but
+                      not linked in Vibe yet.
+                    </span>
+                  </div>
+
+                  {loadingAvailableGitHubInstallations ? (
+                    <div className="flex items-center gap-2 rounded-sm border border-border bg-panel p-3">
+                      <SpinnerIcon className="size-icon-sm animate-spin" />
+                      <span className="text-sm text-low">
+                        Loading existing installations...
+                      </span>
+                    </div>
+                  ) : availableGitHubInstallationsError ? (
+                    <div className="rounded-sm border border-error/50 bg-error/10 p-3 text-sm text-error">
+                      {getGitHubAppErrorMessage(
+                        availableGitHubInstallationsError
+                      )}
+                    </div>
+                  ) : availableGitHubInstallations.length === 0 ? (
+                    <div className="rounded-sm border border-border bg-panel p-3 text-sm text-low">
+                      No existing GitHub App installations were found for this
+                      app yet.
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {availableGitHubInstallations.map((installation) => {
+                        const isLinkedElsewhere =
+                          Boolean(installation.linked_organization_id) &&
+                          !installation.linked_to_current_organization;
+                        const isAdoptingThisInstallation =
+                          adoptGitHubAppInstallation.isPending &&
+                          adoptGitHubAppInstallation.variables
+                            ?.githubInstallationId ===
+                            installation.github_installation_id;
+
+                        return (
+                          <div
+                            key={installation.github_installation_id}
+                            className="flex flex-col gap-3 rounded-sm border border-border bg-panel p-3 lg:flex-row lg:items-center lg:justify-between"
+                          >
+                            <div className="space-y-1">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className="text-sm font-medium text-high">
+                                  {installation.github_account_login}
+                                </span>
+                                <span className="text-xs text-low">
+                                  {installation.github_account_type}
+                                </span>
+                                {installation.suspended_at && (
+                                  <span className="inline-flex items-center gap-1 rounded-full bg-warning/15 px-2 py-0.5 text-xs font-medium text-warning">
+                                    <WarningCircleIcon
+                                      className="size-icon-xs"
+                                      weight="fill"
+                                    />
+                                    Suspended
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-xs text-low">
+                                Installation #
+                                {installation.github_installation_id} ·{' '}
+                                {describeRepositorySelection(
+                                  installation.repository_selection
+                                )}
+                              </p>
+                              {isLinkedElsewhere && (
+                                <p className="text-xs text-warning">
+                                  Already linked to{' '}
+                                  {installation.linked_organization_name ||
+                                    'another Vibe organization'}
+                                  .
+                                </p>
+                              )}
+                            </div>
+                            <PrimaryButton
+                              variant={
+                                isLinkedElsewhere ? 'tertiary' : 'secondary'
+                              }
+                              value={
+                                isLinkedElsewhere
+                                  ? 'Linked Elsewhere'
+                                  : isAdoptingThisInstallation
+                                    ? 'Linking...'
+                                    : 'Link This Installation'
+                              }
+                              onClick={() =>
+                                handleAdoptGitHubInstallation(installation)
+                              }
+                              disabled={
+                                isLinkedElsewhere ||
+                                adoptGitHubAppInstallation.isPending
+                              }
+                            >
+                              {isAdoptingThisInstallation ? (
+                                <SpinnerIcon className="size-icon-xs animate-spin" />
+                              ) : (
+                                <GithubLogoIcon
+                                  className="size-icon-xs"
+                                  weight="fill"
+                                />
+                              )}
+                            </PrimaryButton>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           ) : (
             <>

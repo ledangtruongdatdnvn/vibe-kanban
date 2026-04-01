@@ -40,7 +40,15 @@ pub(super) fn protected_router() -> Router<AppState> {
             "/organizations/{org_id}/github-app/install-url",
             get(get_install_url),
         )
+        .route(
+            "/organizations/{org_id}/github-app/available-installations",
+            get(list_available_installations),
+        )
         .route("/organizations/{org_id}/github-app/status", get(get_status))
+        .route(
+            "/organizations/{org_id}/github-app/adopt",
+            post(adopt_installation),
+        )
         .route("/organizations/{org_id}/github-app", delete(uninstall))
         .route(
             "/organizations/{org_id}/github-app/repositories",
@@ -88,6 +96,23 @@ struct InstallationDetails {
 }
 
 #[derive(Debug, Serialize)]
+struct AvailableInstallationsResponse {
+    pub installations: Vec<AvailableInstallationDetails>,
+}
+
+#[derive(Debug, Serialize)]
+struct AvailableInstallationDetails {
+    pub github_installation_id: i64,
+    pub github_account_login: String,
+    pub github_account_type: String,
+    pub repository_selection: String,
+    pub suspended_at: Option<String>,
+    pub linked_organization_id: Option<String>,
+    pub linked_organization_name: Option<String>,
+    pub linked_to_current_organization: bool,
+}
+
+#[derive(Debug, Serialize)]
 struct RepositoryDetails {
     pub id: String,
     pub github_repo_id: i64,
@@ -115,6 +140,11 @@ struct TriggerPrReviewResponse {
 #[derive(Debug, Deserialize)]
 struct UpdateRepoReviewEnabledRequest {
     pub enabled: bool,
+}
+
+#[derive(Debug, Deserialize)]
+struct AdoptInstallationRequest {
+    pub github_installation_id: i64,
 }
 
 #[derive(Debug, Serialize)]
@@ -189,6 +219,98 @@ async fn get_install_url(
     Ok(Json(InstallUrlResponse { install_url }))
 }
 
+/// GET /v1/organizations/:org_id/github-app/available-installations
+/// Lists existing GitHub App installations that can be linked to this organization.
+async fn list_available_installations(
+    State(state): State<AppState>,
+    axum::extract::Extension(ctx): axum::extract::Extension<RequestContext>,
+    Path(org_id): Path<Uuid>,
+) -> Result<impl IntoResponse, ErrorResponse> {
+    let github_app = state.github_app().ok_or_else(|| {
+        ErrorResponse::new(StatusCode::NOT_IMPLEMENTED, "GitHub App not configured")
+    })?;
+
+    let org_repo = OrganizationRepository::new(state.pool());
+    org_repo
+        .assert_admin(org_id, ctx.user.id)
+        .await
+        .map_err(|e| match e {
+            IdentityError::PermissionDenied => {
+                ErrorResponse::new(StatusCode::FORBIDDEN, "Admin access required")
+            }
+            IdentityError::NotFound => {
+                ErrorResponse::new(StatusCode::NOT_FOUND, "Organization not found")
+            }
+            _ => ErrorResponse::new(StatusCode::INTERNAL_SERVER_ERROR, "Database error"),
+        })?;
+
+    let is_personal = org_repo
+        .is_personal(org_id)
+        .await
+        .map_err(|_| ErrorResponse::new(StatusCode::INTERNAL_SERVER_ERROR, "Database error"))?;
+
+    if is_personal {
+        return Err(ErrorResponse::new(
+            StatusCode::BAD_REQUEST,
+            "GitHub App cannot be linked on personal organizations",
+        ));
+    }
+
+    let mut installations = github_app.list_installations().await.map_err(|e| {
+        error!(?e, "Failed to list GitHub App installations");
+        ErrorResponse::new(
+            StatusCode::BAD_GATEWAY,
+            "Failed to load GitHub App installations",
+        )
+    })?;
+    installations.sort_by(|a, b| {
+        a.account
+            .login
+            .to_lowercase()
+            .cmp(&b.account.login.to_lowercase())
+    });
+
+    let gh_repo = GitHubAppRepository2::new(state.pool());
+    let mut available = Vec::with_capacity(installations.len());
+    for installation in installations {
+        let existing_link = gh_repo
+            .get_by_github_id(installation.id)
+            .await
+            .map_err(|e| {
+                error!(
+                    ?e,
+                    "Failed to resolve existing GitHub App installation link"
+                );
+                ErrorResponse::new(StatusCode::INTERNAL_SERVER_ERROR, "Database error")
+            })?;
+
+        let linked_organization_uuid = existing_link.as_ref().map(|link| link.organization_id);
+        let linked_organization_name = match linked_organization_uuid {
+            Some(linked_org_id) => org_repo
+                .fetch_organization(linked_org_id)
+                .await
+                .ok()
+                .map(|org| org.name),
+            None => None,
+        };
+
+        available.push(AvailableInstallationDetails {
+            github_installation_id: installation.id,
+            github_account_login: installation.account.login,
+            github_account_type: installation.account.account_type,
+            repository_selection: installation.repository_selection,
+            suspended_at: installation.suspended_at,
+            linked_organization_id: linked_organization_uuid.map(|id| id.to_string()),
+            linked_organization_name,
+            linked_to_current_organization: linked_organization_uuid == Some(org_id),
+        });
+    }
+
+    Ok(Json(AvailableInstallationsResponse {
+        installations: available,
+    }))
+}
+
 /// GET /v1/organizations/:org_id/github-app/status
 /// Returns the GitHub App installation status for this organization
 async fn get_status(
@@ -251,6 +373,154 @@ async fn get_status(
             repositories: vec![],
         })),
     }
+}
+
+/// POST /v1/organizations/:org_id/github-app/adopt
+/// Links an already-installed GitHub App installation to this organization.
+async fn adopt_installation(
+    State(state): State<AppState>,
+    axum::extract::Extension(ctx): axum::extract::Extension<RequestContext>,
+    Path(org_id): Path<Uuid>,
+    Json(payload): Json<AdoptInstallationRequest>,
+) -> Result<impl IntoResponse, ErrorResponse> {
+    let github_app = state.github_app().ok_or_else(|| {
+        ErrorResponse::new(StatusCode::NOT_IMPLEMENTED, "GitHub App not configured")
+    })?;
+
+    let org_repo = OrganizationRepository::new(state.pool());
+    org_repo
+        .assert_admin(org_id, ctx.user.id)
+        .await
+        .map_err(|e| match e {
+            IdentityError::PermissionDenied => {
+                ErrorResponse::new(StatusCode::FORBIDDEN, "Admin access required")
+            }
+            IdentityError::NotFound => {
+                ErrorResponse::new(StatusCode::NOT_FOUND, "Organization not found")
+            }
+            _ => ErrorResponse::new(StatusCode::INTERNAL_SERVER_ERROR, "Database error"),
+        })?;
+
+    let is_personal = org_repo
+        .is_personal(org_id)
+        .await
+        .map_err(|_| ErrorResponse::new(StatusCode::INTERNAL_SERVER_ERROR, "Database error"))?;
+
+    if is_personal {
+        return Err(ErrorResponse::new(
+            StatusCode::BAD_REQUEST,
+            "GitHub App cannot be linked on personal organizations",
+        ));
+    }
+
+    let gh_repo = GitHubAppRepository2::new(state.pool());
+
+    if let Some(existing_org_installation) =
+        gh_repo.get_by_organization(org_id).await.map_err(|e| {
+            error!(
+                ?e,
+                "Failed to load current organization GitHub App installation"
+            );
+            ErrorResponse::new(StatusCode::INTERNAL_SERVER_ERROR, "Database error")
+        })?
+    {
+        if existing_org_installation.github_installation_id != payload.github_installation_id {
+            return Err(ErrorResponse::new(
+                StatusCode::CONFLICT,
+                "This organization already has a different GitHub App installation linked",
+            ));
+        }
+    }
+
+    if let Some(existing_link) = gh_repo
+        .get_by_github_id(payload.github_installation_id)
+        .await
+        .map_err(|e| {
+            error!(
+                ?e,
+                "Failed to resolve existing GitHub App installation link"
+            );
+            ErrorResponse::new(StatusCode::INTERNAL_SERVER_ERROR, "Database error")
+        })?
+        && existing_link.organization_id != org_id
+    {
+        let linked_org_name = org_repo
+            .fetch_organization(existing_link.organization_id)
+            .await
+            .ok()
+            .map(|org| org.name)
+            .unwrap_or_else(|| existing_link.organization_id.to_string());
+
+        return Err(ErrorResponse::new(
+            StatusCode::CONFLICT,
+            format!(
+                "This GitHub App installation is already linked to {}",
+                linked_org_name
+            ),
+        ));
+    }
+
+    let installation_info = match github_app
+        .get_installation(payload.github_installation_id)
+        .await
+    {
+        Ok(info) => info,
+        Err(crate::github_app::GitHubAppError::InstallationNotFound) => {
+            return Err(ErrorResponse::new(
+                StatusCode::NOT_FOUND,
+                "GitHub App installation not found",
+            ));
+        }
+        Err(e) => {
+            error!(
+                ?e,
+                github_installation_id = payload.github_installation_id,
+                "Failed to fetch installation from GitHub"
+            );
+            return Err(ErrorResponse::new(
+                StatusCode::BAD_GATEWAY,
+                "Failed to verify installation with GitHub",
+            ));
+        }
+    };
+
+    let installation = gh_repo
+        .create_installation(
+            org_id,
+            payload.github_installation_id,
+            &installation_info.account.login,
+            &installation_info.account.account_type,
+            &installation_info.repository_selection,
+            ctx.user.id,
+        )
+        .await
+        .map_err(|e| {
+            error!(?e, "Failed to create GitHub App installation link");
+            ErrorResponse::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Failed to save installation",
+            )
+        })?;
+
+    if let Err(e) =
+        sync_installation_repositories_from_github(&gh_repo, github_app, &installation).await
+    {
+        warn!(
+            ?e,
+            github_installation_id = installation.github_installation_id,
+            "Linked GitHub App installation, but failed to sync repositories"
+        );
+    }
+
+    info!(
+        org_id = %org_id,
+        github_installation_id = installation.github_installation_id,
+        github_account_login = %installation.github_account_login,
+        user_id = %ctx.user.id,
+        "Adopted existing GitHub App installation"
+    );
+
+    Ok(StatusCode::NO_CONTENT)
 }
 
 /// DELETE /v1/organizations/:org_id/github-app
@@ -377,21 +647,11 @@ async fn fetch_repositories(
         ErrorResponse::new(StatusCode::NOT_IMPLEMENTED, "GitHub App not configured")
     })?;
 
-    match github_app
-        .list_installation_repos(installation.github_installation_id)
-        .await
+    if let Err(e) =
+        sync_installation_repositories_from_github(&gh_repo, github_app, &installation).await
     {
-        Ok(repos) => {
-            let repo_data: Vec<(i64, String)> =
-                repos.into_iter().map(|r| (r.id, r.full_name)).collect();
-            if let Err(e) = gh_repo.sync_repositories(installation.id, &repo_data).await {
-                warn!(?e, "Failed to sync repositories from GitHub API");
-            }
-        }
-        Err(e) => {
-            warn!(?e, "Failed to fetch repositories from GitHub API");
-            // Continue with cached data
-        }
+        warn!(?e, "Failed to fetch repositories from GitHub API");
+        // Continue with cached data
     }
 
     // Return the (now updated) list from DB
@@ -644,21 +904,11 @@ async fn handle_callback(
     }
 
     // Fetch and store repositories if selection is "selected"
-    if installation_info.repository_selection == "selected"
-        && let Ok(repos) = github_app.list_installation_repos(installation_id).await
+    if let Ok(Some(inst)) = gh_repo.get_by_github_id(installation_id).await
+        && let Err(e) =
+            sync_installation_repositories_from_github(&gh_repo, github_app, &inst).await
     {
-        let installation = gh_repo
-            .get_by_github_id(installation_id)
-            .await
-            .ok()
-            .flatten();
-        if let Some(inst) = installation {
-            let repo_data: Vec<(i64, String)> =
-                repos.into_iter().map(|r| (r.id, r.full_name)).collect();
-            if let Err(e) = gh_repo.sync_repositories(inst.id, &repo_data).await {
-                warn!(?e, "Failed to sync repositories");
-            }
-        }
+        warn!(?e, "Failed to sync repositories");
     }
 
     info!(
@@ -674,6 +924,21 @@ async fn handle_callback(
         frontend_base, org_id
     );
     Redirect::temporary(&url).into_response()
+}
+
+async fn sync_installation_repositories_from_github(
+    gh_repo: &GitHubAppRepository2<'_>,
+    github_app: &crate::github_app::GitHubAppService,
+    installation: &crate::db::github_app::GitHubAppInstallation,
+) -> Result<(), crate::github_app::GitHubAppError> {
+    let repos = github_app
+        .list_installation_repos(installation.github_installation_id)
+        .await?;
+    let repo_data: Vec<(i64, String)> = repos.into_iter().map(|r| (r.id, r.full_name)).collect();
+    if let Err(e) = gh_repo.sync_repositories(installation.id, &repo_data).await {
+        warn!(?e, "Failed to sync repositories from GitHub API");
+    }
+    Ok(())
 }
 
 /// POST /v1/github/webhook

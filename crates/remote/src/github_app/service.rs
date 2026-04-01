@@ -198,6 +198,45 @@ impl GitHubAppService {
         Ok(installation)
     }
 
+    /// List all installations for this GitHub App (handles pagination for 100+ installs)
+    pub async fn list_installations(&self) -> Result<Vec<InstallationInfo>, GitHubAppError> {
+        let jwt = self.jwt_generator.generate()?;
+        let url = format!("{}/app/installations", GITHUB_API_BASE);
+
+        let mut all_installations = Vec::new();
+        let mut page = 1u32;
+
+        loop {
+            let response = self
+                .client
+                .get(&url)
+                .header("Authorization", format!("Bearer {}", jwt))
+                .header("Accept", "application/vnd.github+json")
+                .header("User-Agent", USER_AGENT)
+                .header("X-GitHub-Api-Version", "2022-11-28")
+                .query(&[("per_page", "100"), ("page", &page.to_string())])
+                .send()
+                .await?;
+
+            if !response.status().is_success() {
+                let status = response.status().as_u16();
+                let message = response.text().await.unwrap_or_default();
+                return Err(GitHubAppError::Api { status, message });
+            }
+
+            let installations: Vec<InstallationInfo> = response.json().await?;
+            let count = installations.len();
+            all_installations.extend(installations);
+
+            if count < 100 {
+                break;
+            }
+            page += 1;
+        }
+
+        Ok(all_installations)
+    }
+
     /// List repositories accessible to an installation (handles pagination for 100+ repos)
     pub async fn list_installation_repos(
         &self,

@@ -8,4 +8,6 @@ export const organizationKeys = {
     ['organizations', orgId, 'invitations'] as const,
   githubAppStatus: (orgId: string) =>
     ['organizations', orgId, 'github-app', 'status'] as const,
+  githubAppAvailableInstallations: (orgId: string) =>
+    ['organizations', orgId, 'github-app', 'available-installations'] as const,
 };
