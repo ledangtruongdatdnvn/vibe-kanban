@@ -17,7 +17,9 @@
     "noFallthroughCasesInSwitch": true,
     "baseUrl": ".",
     "paths": {
-      "@host-admin/*": ["./src/*"]
+      "@host-admin/*": ["./src/*"],
+      "@/*": ["../web-core/src/*"],
+      "shared/*": ["../../shared/*"]
     }
   },
   "include": ["src"],

@@ -24,6 +24,7 @@
     "host-admin-web:build": "pnpm --filter @vibe/host-admin-web run build",
     "host-admin-web:check": "pnpm --filter @vibe/host-admin-web run check",
     "host-admin-web:format": "pnpm --filter @vibe/host-admin-web run format",
+    "host-admin:service:dev": "export BACKEND_PORT=$(node scripts/setup-dev-environment.js backend) && export HOST_ADMIN_SECRET=${HOST_ADMIN_SECRET:-dev-secret} && export HOST_ADMIN_BASE_URL=http://localhost:${BACKEND_PORT} && PORT=${HOST_ADMIN_PORT:-3005} node services/host-admin/server.js",
     "remote-web:check": "pnpm --filter @vibe/remote-web run check",
     "local-web:format": "pnpm --filter @vibe/local-web run format",
     "remote-web:format": "pnpm --filter @vibe/remote-web run format",

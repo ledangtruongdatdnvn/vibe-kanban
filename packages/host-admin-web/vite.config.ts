@@ -15,7 +15,10 @@ export default defineConfig({
             'babel-plugin-react-compiler',
             {
               target: '18',
-              sources: [path.resolve(__dirname, 'src')],
+              sources: [
+                path.resolve(__dirname, 'src'),
+                path.resolve(__dirname, '../web-core/src'),
+              ],
               environment: {
                 enableResetCacheOnSourceFileChanges: true,
               },
@@ -31,10 +34,25 @@ export default defineConfig({
         find: '@host-admin',
         replacement: path.resolve(__dirname, 'src'),
       },
+      {
+        find: /^@\//,
+        replacement: `${path.resolve(__dirname, '../web-core/src')}/`,
+      },
+      {
+        find: 'shared',
+        replacement: path.resolve(__dirname, '../../shared'),
+      },
     ],
   },
   server: {
     port: 3006,
+    proxy: {
+      '/api': {
+        target: `http://localhost:${process.env.HOST_ADMIN_PORT || '3005'}`,
+        changeOrigin: true,
+        ws: true,
+      },
+    },
     fs: {
       allow: [path.resolve(__dirname, '.'), path.resolve(__dirname, '../..')],
     },
