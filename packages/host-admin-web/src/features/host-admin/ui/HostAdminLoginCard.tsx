@@ -1,5 +1,4 @@
 import { Alert, AlertDescription } from "@vibe/ui/components/Alert";
-import { Button } from "@vibe/ui/components/Button";
 import {
   Card,
   CardContent,
@@ -9,6 +8,7 @@ import {
 } from "@vibe/ui/components/Card";
 import { Input } from "@vibe/ui/components/Input";
 import { Label } from "@vibe/ui/components/Label";
+import { PrimaryButton } from "@vibe/ui/components/PrimaryButton";
 import type { ToolMessage } from "@host-admin/features/host-admin/model/hostAdminTypes";
 
 type HostAdminLoginCardProps = {
@@ -55,9 +55,14 @@ export function HostAdminLoginCard({
           </Alert>
         )}
 
-        <Button onClick={onLogin} disabled={loginBusy}>
+        <PrimaryButton
+          className="w-full justify-center"
+          onClick={onLogin}
+          disabled={loginBusy}
+          actionIcon={loginBusy ? "spinner" : undefined}
+        >
           {loginBusy ? "Signing in…" : "Sign in"}
-        </Button>
+        </PrimaryButton>
       </CardContent>
     </Card>
   );

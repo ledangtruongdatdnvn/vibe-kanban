@@ -39,6 +39,7 @@ export const TOOL_CONFIG: Record<Tool, ToolConfig> = {
     title: "Claude Code (Anthropic)",
     description: "On your local machine, run:",
     command: 'security find-generic-password -s "Claude Code-credentials" -w',
+    hint: "If this fails, sign in once with claude auth login on your machine first.",
     placeholder:
       '{"claudeAiOauth":{"accessToken":"sk-ant-oat01-...","refreshToken":"sk-ant-ort01-...","expiresAt":...}}',
     saveLabel: "Save Claude credentials",

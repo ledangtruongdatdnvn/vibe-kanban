@@ -7,6 +7,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@vibe/ui/components/Card";
+import { PrimaryButton } from "@vibe/ui/components/PrimaryButton";
 import type { ToolMessage } from "@host-admin/features/host-admin/model/hostAdminTypes";
 
 export type HostAdminCleanupSectionProps = {
@@ -24,7 +25,7 @@ export function HostAdminCleanupSection({
 }: HostAdminCleanupSectionProps) {
   return (
     <div className="grid gap-double lg:grid-cols-2">
-      <Card className="border border-border bg-panel/80">
+      <Card className="flex h-full flex-col border border-border bg-panel/80">
         <CardHeader>
           <CardTitle className="text-lg">Clean orphan worktrees</CardTitle>
           <CardDescription>
@@ -32,31 +33,37 @@ export function HostAdminCleanupSection({
             <code>git worktree prune</code> across registered repos.
           </CardDescription>
         </CardHeader>
-        <CardContent className="flex flex-col gap-double">
+        <CardContent className="flex flex-1 flex-col gap-double">
           <p className="text-sm text-low">
             This is the safe cleanup path. It should only remove orphaned
             worktree directories and stale Git worktree metadata.
           </p>
-          <Button onClick={onCleanOrphans} disabled={cleanupBusy !== null}>
+          <PrimaryButton
+            className="mt-auto h-10 min-h-0 w-full justify-center"
+            onClick={onCleanOrphans}
+            disabled={cleanupBusy !== null}
+            actionIcon={cleanupBusy === "orphans" ? "spinner" : undefined}
+          >
             {cleanupBusy === "orphans" ? "Cleaning…" : "Clean orphan worktrees"}
-          </Button>
+          </PrimaryButton>
         </CardContent>
       </Card>
 
-      <Card className="border border-border bg-panel/80">
+      <Card className="flex h-full flex-col border border-border bg-panel/80">
         <CardHeader>
           <CardTitle className="text-lg">Clean persisted host data</CardTitle>
           <CardDescription>
             Delete mounted host data plus saved Claude/Codex credentials.
           </CardDescription>
         </CardHeader>
-        <CardContent className="flex flex-col gap-double">
+        <CardContent className="flex flex-1 flex-col gap-double">
           <p className="text-sm text-low">
             This is stronger than orphan cleanup. It wipes the persisted host
             state and usually requires a host restart or redeploy before the
             stack is usable again.
           </p>
           <Button
+            className="mt-auto h-10 w-full"
             variant="destructive"
             onClick={onCleanData}
             disabled={cleanupBusy !== null}

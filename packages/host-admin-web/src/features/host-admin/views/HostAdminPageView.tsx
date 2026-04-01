@@ -162,7 +162,7 @@ export function HostAdminPageView({
   return (
     <HostAdminShell>
       <Card className="overflow-hidden border border-border bg-panel/95 backdrop-blur-sm">
-        <CardContent className="grid gap-double p-double lg:grid-cols-[minmax(0,1.45fr)_minmax(20rem,0.95fr)]">
+        <CardContent className="grid gap-double !p-double lg:grid-cols-[minmax(0,1.45fr)_minmax(20rem,0.95fr)]">
           <div className="flex flex-col gap-base">
             <div className="flex flex-wrap items-center gap-half">
               <h1 className="text-2xl font-semibold text-high">Host Admin</h1>
@@ -177,15 +177,9 @@ export function HostAdminPageView({
               app.
             </p>
             <div className="flex flex-wrap gap-half text-sm text-low">
-              <span className="rounded-full border border-border px-half py-[0.2rem]">
-                Shared-secret login
-              </span>
-              <span className="rounded-full border border-border px-half py-[0.2rem]">
-                Cookie session
-              </span>
-              <span className="rounded-full border border-border px-half py-[0.2rem]">
-                Proxy to host on safe actions
-              </span>
+              <Badge variant="secondary">Shared-secret login</Badge>
+              <Badge variant="secondary">Cookie session</Badge>
+              <Badge variant="secondary">Proxy to host on safe actions</Badge>
             </div>
           </div>
 

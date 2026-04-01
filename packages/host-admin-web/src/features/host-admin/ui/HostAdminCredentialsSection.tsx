@@ -9,6 +9,7 @@ import {
   CardTitle,
 } from "@vibe/ui/components/Card";
 import { Label } from "@vibe/ui/components/Label";
+import { PrimaryButton } from "@vibe/ui/components/PrimaryButton";
 import { Textarea } from "@vibe/ui/components/Textarea";
 import {
   INITIAL_MESSAGE,
@@ -54,7 +55,10 @@ export function HostAdminCredentialsSection({
           clearingCredentials === tool || clearingCredentials === "all";
 
         return (
-          <Card key={tool} className="border border-border bg-panel/80">
+          <Card
+            key={tool}
+            className="flex h-full flex-col border border-border bg-panel/80"
+          >
             <CardHeader className="gap-double">
               <div className="flex items-center justify-between gap-half">
                 <CardTitle className="text-lg">{config.title}</CardTitle>
@@ -62,7 +66,7 @@ export function HostAdminCredentialsSection({
                   {statusBadgeText(status)}
                 </Badge>
               </div>
-              <CardDescription className="space-y-half">
+              <CardDescription className="grid min-h-[7.5rem] content-start gap-half">
                 <p>{config.description}</p>
                 <code className="block rounded border border-border px-half py-half text-xs">
                   {config.command}
@@ -71,10 +75,11 @@ export function HostAdminCredentialsSection({
               </CardDescription>
             </CardHeader>
 
-            <CardContent className="flex flex-col gap-double">
-              <div className="flex flex-col gap-half">
+            <CardContent className="flex flex-1 flex-col gap-double">
+              <div className="flex flex-1 flex-col gap-half">
                 <Label htmlFor={`credentials-${tool}`}>Credentials JSON</Label>
                 <Textarea
+                  className="min-h-[18rem] flex-1"
                   id={`credentials-${tool}`}
                   rows={10}
                   placeholder={config.placeholder}
@@ -93,16 +98,22 @@ export function HostAdminCredentialsSection({
                 </Alert>
               )}
 
-              <div className="flex flex-wrap gap-half">
-                <Button onClick={() => onSave(tool)} disabled={isSaving}>
+              <div className="mt-auto flex flex-wrap gap-half">
+                <PrimaryButton
+                  onClick={() => onSave(tool)}
+                  disabled={isSaving}
+                  actionIcon={isSaving ? "spinner" : undefined}
+                >
                   {isSaving ? "Saving…" : config.saveLabel}
-                </Button>
+                </PrimaryButton>
                 <Button
                   variant="outline"
                   onClick={() => onClearCredentials(tool)}
                   disabled={isClearing}
                 >
-                  {isClearing ? "Clearing…" : `Clear ${tool}`}
+                  {isClearing
+                    ? "Clearing…"
+                    : `Clear ${tool === "claude" ? "Claude" : "Codex"}`}
                 </Button>
               </div>
             </CardContent>

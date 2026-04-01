@@ -9,6 +9,13 @@ import {
 } from "@vibe/ui/components/Card";
 import { Label } from "@vibe/ui/components/Label";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@vibe/ui/components/Select";
+import {
   Table,
   TableBody,
   TableCell,
@@ -73,20 +80,30 @@ export function HostAdminBranchesSection({
 
         <div className="flex flex-col gap-half sm:max-w-[20rem]">
           <Label htmlFor="repo-selector">Repository</Label>
-          <select
-            id="repo-selector"
-            className="h-10 rounded-md border border-border bg-transparent px-3 text-sm"
-            value={selectedRepoId}
-            onChange={(event) => onSelectedRepoChange(event.target.value)}
+          <Select
+            value={selectedRepoId || undefined}
+            onValueChange={onSelectedRepoChange}
             disabled={reposLoading || repos.length === 0}
           >
-            {repos.length === 0 && <option value="">No repositories</option>}
-            {repos.map((repo) => (
-              <option key={repo.id} value={repo.id}>
-                {repo.display_name || repo.name}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger id="repo-selector" className="bg-panel">
+              <SelectValue
+                placeholder={
+                  reposLoading
+                    ? "Loading repositories…"
+                    : repos.length === 0
+                      ? "No repositories"
+                      : "Select a repository"
+                }
+              />
+            </SelectTrigger>
+            <SelectContent>
+              {repos.map((repo) => (
+                <SelectItem key={repo.id} value={repo.id}>
+                  {repo.display_name || repo.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         <div className="overflow-x-auto">

@@ -16,20 +16,28 @@ export function HostAdminSectionNav({
   tabs,
 }: HostAdminSectionNavProps) {
   return (
-    <div className="flex flex-col gap-half">
+    <div className="flex flex-col gap-1">
       {tabs.map((tab) => (
         <button
           key={tab.id}
           type="button"
+          aria-pressed={activeTab === tab.id}
           className={cn(
-            "rounded-lg border px-base py-base text-left transition-colors",
+            "w-full rounded-sm px-3 py-2 text-left transition-colors",
             activeTab === tab.id
-              ? "border-foreground bg-primary/70"
-              : "border-border bg-transparent hover:bg-primary/40",
+              ? "bg-brand/10 text-brand"
+              : "text-normal hover:bg-primary/10",
           )}
           onClick={() => onTabChange(tab.id)}
         >
-          <div className="text-sm font-medium text-high">{tab.label}</div>
+          <div
+            className={cn(
+              "text-sm font-medium",
+              activeTab === tab.id ? "text-brand" : "text-high",
+            )}
+          >
+            {tab.label}
+          </div>
           <div className="mt-[0.15rem] text-xs text-low">{tab.summary}</div>
         </button>
       ))}
