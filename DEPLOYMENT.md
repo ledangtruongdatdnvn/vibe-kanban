@@ -235,7 +235,7 @@ docker logs <host-container-name> --tail 30
 
 | Volume | Contents | Mount path in HOST |
 |--------|----------|-------------------|
-| `host-data` | SQLite DB, config | `/home/node/.vibe-kanban` |
+| `host-data` | SQLite DB, config, relay credentials, process logs | `/home/node/.local/share/vibe-kanban` |
 | `HOST_REPOS_DIR` bind (default `/srv/vibe-kanban/repos`) | Cloned repos | `/home/node/repos` |
 | `claude-credentials` | Claude OAuth token | `/home/node/.claude` |
 | `codex-credentials` | Codex auth token | `/home/node/.codex` |

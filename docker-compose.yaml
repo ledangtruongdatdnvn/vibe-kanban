@@ -160,8 +160,10 @@ services:
       # Option B – subscription login (see "next steps" below).
       # Leave these blank; credentials are persisted in the volumes.
     volumes:
-      # Persistent data: SQLite DB, credentials, config, SSH keys
-      - host-data:/home/node/.vibe-kanban
+      # Persistent data: SQLite DB, config, relay credentials, process logs
+      # The app stores these under the OS data dir on Linux:
+      #   /home/node/.local/share/vibe-kanban
+      - host-data:/home/node/.local/share/vibe-kanban
       # Mount a dedicated host directory where repos will be cloned / worked on.
       # Default: /srv/vibe-kanban/repos on the server -> /home/node/repos in container.
       # Override with HOST_REPOS_DIR in .env if you need a different host path.

@@ -135,7 +135,7 @@ RUN apt-get update \
        ca-certificates libssl3 wget curl git git-lfs openssh-client gosu \
   && git lfs install --system \
   && rm -rf /var/lib/apt/lists/* \
-  && mkdir -p /home/node/repos /home/node/.vibe-kanban \
+  && mkdir -p /home/node/repos /home/node/.vibe-kanban /home/node/.local/share/vibe-kanban \
   && chown -R node:node /home/node
 
 COPY --from=builder /app/bin/server /usr/local/bin/vibe-kanban-server

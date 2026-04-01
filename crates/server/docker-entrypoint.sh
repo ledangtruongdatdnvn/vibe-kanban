@@ -20,6 +20,7 @@ ensure_owned() {
 if [ "$(id -u)" -eq 0 ]; then
   ensure_owned /home/node/repos
   ensure_owned /home/node/.vibe-kanban
+  ensure_owned /home/node/.local/share/vibe-kanban
   ensure_owned /home/node/.claude
   ensure_owned /home/node/.codex
 
