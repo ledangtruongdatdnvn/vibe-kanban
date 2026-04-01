@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import {
   ClockCounterClockwiseIcon,
   GitBranchIcon,
+  GithubLogoIcon,
   MagnifyingGlassIcon,
   PlusIcon,
   SpinnerIcon,
@@ -15,6 +16,7 @@ import { repoApi } from '@/shared/lib/api';
 import { cn } from '@/shared/lib/utils';
 import { useCreateMode } from '@/features/create-mode/model/useCreateMode';
 import { FolderPickerDialog } from '@/shared/dialogs/shared/FolderPickerDialog';
+import { ImportGitHubRepoDialog } from '@/shared/dialogs/shared/ImportGitHubRepoDialog';
 import { SettingsDialog } from '@/shared/dialogs/settings/SettingsDialog';
 import { PrimaryButton } from '@vibe/ui/components/PrimaryButton';
 import { CreateRepoDialog } from '@vibe/ui/components/CreateRepoDialog';
@@ -52,7 +54,13 @@ function getRepoDisplayName(repo: Repo): string {
   return repo.display_name || repo.name;
 }
 
-type PendingAction = 'choose' | 'browse' | 'create' | 'branch' | null;
+type PendingAction =
+  | 'choose'
+  | 'browse'
+  | 'github'
+  | 'create'
+  | 'branch'
+  | null;
 
 const inlineControlButtonClassName =
   'inline-flex items-center gap-half rounded-sm px-half py-half text-sm text-normal ' +
@@ -200,7 +208,7 @@ export function CreateModeRepoPickerBar({
       },
       'Failed to register repository'
     );
-  }, [addRepoWithBranchSelection, runPickerAction, t]);
+  }, [addRepoWithBranchSelection, queryClient, runPickerAction, t]);
 
   const handleCreateRepo = useCallback(async () => {
     await runPickerAction(
@@ -225,7 +233,27 @@ export function CreateModeRepoPickerBar({
       },
       'Failed to create repository'
     );
-  }, [addRepoWithBranchSelection, runPickerAction, t]);
+  }, [addRepoWithBranchSelection, queryClient, runPickerAction, t]);
+
+  const handleImportGitHubRepo = useCallback(async () => {
+    await runPickerAction(
+      'github',
+      async () => {
+        await ImportGitHubRepoDialog.show({
+          onImportRepo: async ({ repository, folderName, displayName }) => {
+            const repo = await repoApi.importFromGitHub({
+              repository,
+              folder_name: folderName,
+              display_name: displayName,
+            });
+            queryClient.invalidateQueries({ queryKey: ['repos'] });
+            await addRepoWithBranchSelection(repo);
+          },
+        });
+      },
+      'Failed to import repository from GitHub'
+    );
+  }, [addRepoWithBranchSelection, queryClient, runPickerAction]);
 
   const handleChangeBranch = useCallback(
     async (repo: Repo) => {
@@ -333,6 +361,19 @@ export function CreateModeRepoPickerBar({
               <MagnifyingGlassIcon className="size-icon-xs" weight="bold" />
             )}
             <span>{t('createMode.repoPicker.actions.browse')}</span>
+          </button>
+          <button
+            type="button"
+            onClick={handleImportGitHubRepo}
+            disabled={isBusy}
+            className={inlineControlButtonClassName}
+          >
+            {pendingAction === 'github' ? (
+              <SpinnerIcon className="size-icon-xs animate-spin" />
+            ) : (
+              <GithubLogoIcon className="size-icon-xs" weight="fill" />
+            )}
+            <span>GitHub</span>
           </button>
           <button
             type="button"

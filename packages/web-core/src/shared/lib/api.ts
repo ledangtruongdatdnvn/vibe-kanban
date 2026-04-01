@@ -248,6 +248,12 @@ export interface GitHubAppAvailableInstallationsResponse {
   installations: GitHubAppAvailableInstallationDetails[];
 }
 
+export interface ImportGitHubRepoInput {
+  repository: string;
+  folder_name?: string;
+  display_name?: string;
+}
+
 export interface GitHubAppInstallUrlResponse {
   install_url: string;
 }
@@ -934,6 +940,21 @@ export const repoApi = {
       method: 'POST',
       body: JSON.stringify(data),
     });
+    return handleApiResponse<Repo>(response);
+  },
+
+  importFromGitHub: async (
+    data: ImportGitHubRepoInput,
+    hostId?: string | null
+  ): Promise<Repo> => {
+    const response = await makeHostAwareRequest(
+      '/api/repos/import/github',
+      hostId,
+      {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }
+    );
     return handleApiResponse<Repo>(response);
   },
 
