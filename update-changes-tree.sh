@@ -13,56 +13,96 @@ cd "$REPO_ROOT"
 # ── write helper scripts ──────────────────────────────────────────────────────
 
 cat > "$TMP_TREE_PY" << 'EOF'
-import sys
+import sys, json
 
-lines = [l.strip() for l in sys.stdin if l.strip()]
+data = json.load(sys.stdin)
+all_paths = data['all']
+added     = set(data['added'])
+modified  = set(data['modified'])
+
+def tag(path, is_dir=False):
+    if is_dir:
+        # directory is "new" only if ALL files under it are added
+        return ''
+    if path in added:
+        return ' (new)'
+    if path in modified:
+        return ' (modified)'
+    return ''
 
 def build_tree(paths):
+    # tree node: { name: ({children}, full_path) }
     tree = {}
     for path in paths:
+        parts = path.split('/')
         node = tree
-        for part in path.split('/'):
+        for part in parts:
             node = node.setdefault(part, {})
     return tree
 
-def render(tree, prefix=''):
+def render(tree, prefix='', path_prefix=''):
     items = sorted(tree.items(), key=lambda x: (bool(x[1]), x[0]))
     out = []
     for i, (name, children) in enumerate(items):
         is_last = i == len(items) - 1
-        out.append(f'{prefix}{"└── " if is_last else "├── "}{name}')
+        connector = '└── ' if is_last else '├── '
+        full_path = f'{path_prefix}/{name}'.lstrip('/')
+        is_file = not children
+        label = name + (tag(full_path) if is_file else '')
+        out.append(f'{prefix}{connector}{label}')
         if children:
-            out.extend(render(children, prefix + ('    ' if is_last else '│   ')))
+            out.extend(render(children, prefix + ('    ' if is_last else '│   '), full_path))
     return out
 
+tree = build_tree(all_paths)
 print('.')
-for line in render(build_tree(lines)):
+for line in render(tree):
     print(line)
 EOF
 
 cat > "$TMP_TABLE_PY" << 'EOF'
-import sys
+import sys, json
 from collections import defaultdict
 
-lines = [l.strip() for l in sys.stdin if l.strip()]
-groups = defaultdict(int)
+data = json.load(sys.stdin)
+all_files   = set(data['all'])
+added_files = set(data['added'])   # only in fork
+mod_files   = set(data['modified'])
 
-for path in lines:
+groups_all   = defaultdict(int)
+groups_added = defaultdict(int)
+groups_mod   = defaultdict(int)
+
+def group_key(path):
     parts = path.split('/')
     if len(parts) == 1:
-        key = '(root)'
-    elif parts[0] == 'crates' and len(parts) >= 3 and parts[2] == 'Cargo.toml':
-        key = '`crates/*/Cargo.toml`'
-    elif len(parts) >= 2:
-        key = f'`{parts[0]}/{parts[1]}/`'
-    else:
-        key = f'`{parts[0]}/`'
-    groups[key] += 1
+        return '(root)'
+    if parts[0] == 'crates' and len(parts) >= 3 and parts[2] == 'Cargo.toml':
+        return '`crates/*/Cargo.toml`'
+    return f'`{parts[0]}/{parts[1]}/`'
 
-print('| Area | Files |')
-print('|------|-------|')
-for k, v in sorted(groups.items(), key=lambda x: -x[1]):
-    print(f'| {k} | {v} |')
+for f in all_files:
+    k = group_key(f)
+    groups_all[k] += 1
+for f in added_files:
+    k = group_key(f)
+    groups_added[k] += 1
+for f in mod_files:
+    k = group_key(f)
+    groups_mod[k] += 1
+
+print('| Area | Files | Status |')
+print('|------|-------|--------|')
+for k, total in sorted(groups_all.items(), key=lambda x: -x[1]):
+    a = groups_added.get(k, 0)
+    m = groups_mod.get(k, 0)
+    if a == total:
+        status = '🆕 New (fork only)'
+    elif m == total:
+        status = '✏️ Modified'
+    else:
+        status = f'🆕 {a} new · ✏️ {m} modified'
+    print(f'| {k} | {total} | {status} |')
 EOF
 
 # ── fetch & collect data ──────────────────────────────────────────────────────
@@ -70,20 +110,35 @@ EOF
 echo "Fetching upstream..."
 git fetch upstream --quiet
 
-git diff --name-only "$UPSTREAM"...main | sort > "$TMP_FILES"
+git diff --name-only             "$UPSTREAM"...main | sort > "$TMP_FILES"
+git diff --diff-filter=A --name-only "$UPSTREAM"...main | sort > /tmp/vk_added.txt
+git diff --diff-filter=M --name-only "$UPSTREAM"...main | sort > /tmp/vk_modified.txt
 
 FILES_CHANGED=$(wc -l < "$TMP_FILES" | tr -d ' ')
 STATS=$(git diff --shortstat "$UPSTREAM"...main)
 DATE=$(date '+%Y-%m-%d %H:%M')
-TREE=$(python3 "$TMP_TREE_PY" < "$TMP_FILES")
-TABLE=$(python3 "$TMP_TABLE_PY" < "$TMP_FILES")
+
+# Build shared JSON (used by both tree and table scripts)
+python3 - > /tmp/vk_input.json <<PYEOF
+import json, sys
+all_f = open('$TMP_FILES').read().splitlines()
+add_f = open('/tmp/vk_added.txt').read().splitlines()
+mod_f = open('/tmp/vk_modified.txt').read().splitlines()
+sys.stdout.write(json.dumps({'all': all_f, 'added': add_f, 'modified': mod_f}))
+PYEOF
+
+TREE=$(python3 "$TMP_TREE_PY"  < /tmp/vk_input.json)
+TABLE=$(python3 "$TMP_TABLE_PY" < /tmp/vk_input.json)
 
 # ── write markdown ────────────────────────────────────────────────────────────
 
 {
   echo "# Changes vs upstream (BloopAI/vibe-kanban)"
   echo ""
-  echo "> **${FILES_CHANGED} files changed** — \`${STATS}\`"
+  TOTAL_NEW=$(wc -l < /tmp/vk_added.txt | tr -d ' ')
+  TOTAL_MOD=$(wc -l < /tmp/vk_modified.txt | tr -d ' ')
+  echo "> **${FILES_CHANGED} files changed** — 🆕 ${TOTAL_NEW} new · ✏️ ${TOTAL_MOD} modified"
+  echo "> \`${STATS}\`"
   echo "> Last updated: ${DATE}"
   echo ""
   echo "Generated by: \`git diff --name-only upstream/main...main\`"

@@ -22,6 +22,7 @@ use std::{
     process::{Command, Stdio},
 };
 
+use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64_STANDARD};
 use thiserror::Error;
 use utils::{path::ALWAYS_SKIP_DIRS, shell::resolve_executable_path_blocking};
 
@@ -80,6 +81,63 @@ pub struct StatusDiffOptions {
 impl GitCli {
     pub fn new() -> Self {
         Self {}
+    }
+
+    /// Clone a repository into `target_path` using the native Git CLI.
+    ///
+    /// This path avoids libgit2 TLS handling, which has proven unreliable in
+    /// some deployment environments for HTTPS remotes.
+    pub fn clone(
+        &self,
+        clone_url: &str,
+        target_path: &Path,
+        token: Option<&str>,
+    ) -> Result<(), GitCliError> {
+        let parent = target_path.parent().ok_or_else(|| {
+            GitCliError::CommandFailed(format!(
+                "Invalid clone target path: {}",
+                target_path.display()
+            ))
+        })?;
+        std::fs::create_dir_all(parent).map_err(|e| GitCliError::CommandFailed(e.to_string()))?;
+
+        let target_name = target_path.file_name().ok_or_else(|| {
+            GitCliError::CommandFailed(format!(
+                "Invalid clone target path: {}",
+                target_path.display()
+            ))
+        })?;
+
+        let mut envs = vec![(OsString::from("GIT_TERMINAL_PROMPT"), OsString::from("0"))];
+        if let Some(token) = token {
+            let auth_header = format!("AUTHORIZATION: basic {}", github_basic_auth_header(token));
+            envs.push((OsString::from("GIT_CONFIG_COUNT"), OsString::from("2")));
+            envs.push((
+                OsString::from("GIT_CONFIG_KEY_0"),
+                OsString::from("credential.helper"),
+            ));
+            envs.push((OsString::from("GIT_CONFIG_VALUE_0"), OsString::new()));
+            envs.push((
+                OsString::from("GIT_CONFIG_KEY_1"),
+                OsString::from("http.extraHeader"),
+            ));
+            envs.push((
+                OsString::from("GIT_CONFIG_VALUE_1"),
+                OsString::from(auth_header),
+            ));
+        }
+
+        let args = [
+            OsString::from("clone"),
+            OsString::from(clone_url),
+            target_name.to_os_string(),
+        ];
+
+        match self.git_with_env(parent, args, &envs) {
+            Ok(_) => Ok(()),
+            Err(GitCliError::CommandFailed(msg)) => Err(self.classify_cli_error(msg)),
+            Err(err) => Err(err),
+        }
     }
     /// Run `git -C <repo> worktree add <path> <branch>` (optionally creating the branch with -b)
     pub fn worktree_add(
@@ -707,6 +765,10 @@ impl GitCli {
         }
         Ok(files)
     }
+}
+
+fn github_basic_auth_header(token: &str) -> String {
+    BASE64_STANDARD.encode(format!("x-access-token:{token}"))
 }
 
 // Private methods

@@ -8,8 +8,8 @@ default = []
 cloud = []
 
 [dependencies]
+base64 = "0.22"
 chrono = { version = "0.4", features = ["serde"] }
-dirs = "5.0"
 git2 = { workspace = true }
 serde = { workspace = true }
 tempfile = "3.21"

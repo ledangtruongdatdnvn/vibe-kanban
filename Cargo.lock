@@ -3203,8 +3203,8 @@ dependencies = [
 name = "git"
 version = "0.1.39"
 dependencies = [
+ "base64 0.22.1",
  "chrono",
- "dirs 5.0.1",
  "git2",
  "serde",
  "tempfile",
