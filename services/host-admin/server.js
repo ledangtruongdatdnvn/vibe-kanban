@@ -282,6 +282,7 @@ function writeUpgradeError(socket, statusCode, message) {
   const statusText =
     {
       401: "Unauthorized",
+      403: "Forbidden",
       404: "Not Found",
       502: "Bad Gateway",
       503: "Service Unavailable",
@@ -323,7 +324,8 @@ function buildTerminalProxyHeaders(req, targetHost) {
       host: targetHost,
       connection: req.headers.connection || "Upgrade",
       upgrade: req.headers.upgrade || "websocket",
-      origin: req.headers.origin,
+      // Do not forward the browser Origin header. The upstream host service
+      // validates Origin against its own host, but this hop is server-to-server.
       pragma: req.headers.pragma,
       "cache-control": req.headers["cache-control"],
       "user-agent": req.headers["user-agent"],
@@ -427,7 +429,14 @@ function handleTerminalUpgrade(req, socket, head, url) {
       chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
     });
     upstreamRes.on("end", () => {
-      writeUpgradeResponse(socket, upstreamRes, Buffer.concat(chunks));
+      const bodyBuffer = Buffer.concat(chunks);
+      console.error("[host-admin] terminal proxy rejected upgrade", {
+        statusCode: upstreamRes.statusCode || 502,
+        statusMessage: upstreamRes.statusMessage || "Bad Gateway",
+        targetPath,
+        body: bodyBuffer.toString("utf8"),
+      });
+      writeUpgradeResponse(socket, upstreamRes, bodyBuffer);
       socket.destroy();
     });
   });
