@@ -17,6 +17,7 @@ RUN pnpm install --frozen-lockfile
 COPY packages/ui packages/ui
 COPY packages/web-core packages/web-core
 COPY packages/host-admin-web packages/host-admin-web
+COPY shared shared
 COPY packages/local-web/tailwind.new.config.js packages/local-web/tailwind.new.config.js
 
 RUN pnpm --filter @vibe/host-admin-web run build
