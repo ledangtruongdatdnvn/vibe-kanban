@@ -721,6 +721,35 @@ async function handleApi(req, res, url) {
     return;
   }
 
+  if (
+    req.method === "GET" &&
+    url.pathname.startsWith("/api/remote/workspaces/by-local-id/")
+  ) {
+    const workspaceId = url.pathname.slice(
+      "/api/remote/workspaces/by-local-id/".length,
+    );
+    if (!workspaceId) {
+      json(res, 400, { error: "Workspace id is required." });
+      return;
+    }
+
+    try {
+      sendProxyResponse(
+        res,
+        await proxyToHost(
+          "GET",
+          `/api/remote/workspaces/by-local-id/${encodeURIComponent(workspaceId)}`,
+        ),
+      );
+    } catch (error) {
+      json(res, 502, {
+        error:
+          error instanceof Error ? error.message : "Host service unavailable.",
+      });
+    }
+    return;
+  }
+
   if (req.method === "DELETE" && url.pathname.startsWith("/api/workspaces/")) {
     const workspaceId = url.pathname.slice("/api/workspaces/".length);
     if (!workspaceId) {
@@ -729,9 +758,13 @@ async function handleApi(req, res, url) {
     }
 
     const deleteBranches = url.searchParams.get("delete_branches") === "true";
+    const deleteRemote = url.searchParams.get("delete_remote") === "true";
     const search = new URLSearchParams();
     if (deleteBranches) {
       search.set("delete_branches", "true");
+    }
+    if (deleteRemote) {
+      search.set("delete_remote", "true");
     }
 
     try {
