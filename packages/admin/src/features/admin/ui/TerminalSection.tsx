@@ -225,9 +225,20 @@ export function TerminalSection({
     }
 
     const terminal = new Terminal({
+      allowTransparency: true,
       cursorBlink: true,
+      cursorInactiveStyle: "outline",
+      cursorStyle: "block",
       fontSize: 12,
       fontFamily: '"IBM Plex Mono", monospace',
+      fontWeight: "400",
+      fontWeightBold: "600",
+      letterSpacing: 0.2,
+      lineHeight: 1.2,
+      minimumContrastRatio: 4.5,
+      rightClickSelectsWord: true,
+      scrollback: 5000,
+      smoothScrollDuration: 120,
       theme: getTerminalTheme(),
     });
     const fitAddon = new FitAddon();
@@ -236,6 +247,36 @@ export function TerminalSection({
     terminal.loadAddon(new WebLinksAddon());
     terminal.open(terminalContainerRef.current);
     fitAddon.fit();
+
+    terminal.attachCustomKeyEventHandler((event) => {
+      if (event.type !== "keydown") {
+        return true;
+      }
+
+      const isMeta = event.ctrlKey || event.metaKey;
+      const key = event.key.toLowerCase();
+
+      if (isMeta && key === "c") {
+        const selection = terminal.getSelection();
+        if (!selection) {
+          return true;
+        }
+
+        void navigator.clipboard?.writeText(selection);
+        return false;
+      }
+
+      if (isMeta && key === "v") {
+        void navigator.clipboard?.readText().then((text) => {
+          if (text) {
+            sendInput(text);
+          }
+        });
+        return false;
+      }
+
+      return true;
+    });
 
     terminalRef.current = terminal;
     fitAddonRef.current = fitAddon;

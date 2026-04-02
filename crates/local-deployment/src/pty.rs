@@ -9,7 +9,7 @@ use std::{
 use portable_pty::{CommandBuilder, NativePtySystem, PtySize, PtySystem};
 use thiserror::Error;
 use tokio::sync::mpsc;
-use utils::shell::get_interactive_shell;
+use utils::shell::{UnixShell, get_interactive_shell};
 use uuid::Uuid;
 
 #[derive(Debug, Error)]
@@ -83,6 +83,7 @@ impl PtyService {
 
             // Configure shell-specific options
             let shell_name = shell.file_name().and_then(|n| n.to_str()).unwrap_or("");
+            let unix_shell = UnixShell::current_shell();
 
             if shell_name == "powershell.exe" || shell_name == "pwsh.exe" {
                 // PowerShell: use -NoLogo for cleaner startup
@@ -91,6 +92,8 @@ impl PtyService {
                 // cmd.exe: no special args needed
             } else {
                 // Unix shells
+                let shell_arg = if unix_shell.login() { "-il" } else { "-i" };
+                cmd.arg(shell_arg);
                 cmd.env("VIBE_KANBAN_TERMINAL", "1");
 
                 if shell_name == "bash" {
