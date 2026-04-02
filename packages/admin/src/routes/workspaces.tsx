@@ -4,6 +4,7 @@ import {
   deleteWorkspace,
   fetchWorkspaceUsage,
   fetchWorkspaces,
+  verifyRemoteWorkspaceDeleted,
 } from "@admin/features/admin/model/api";
 import type { ToolMessage, Workspace } from "@admin/features/admin/model/types";
 import { AdminContext } from "@admin/routes/__root";
@@ -91,12 +92,22 @@ function WorkspacesRoute() {
     setWorkspaceMessage(null);
     try {
       await deleteWorkspace(workspace.id, deleteBranches);
-      setWorkspaceMessage({
-        kind: "success",
-        text: `Workspace "${workspaceLabel}" queued for deletion.`,
-      });
+      const remoteDeleted = await verifyRemoteWorkspaceDeleted(workspace.id);
+
       await Promise.all([refreshWorkspaces(), refreshWorkspaceUsage()]);
       refreshOverview();
+
+      setWorkspaceMessage(
+        remoteDeleted
+          ? {
+              kind: "success",
+              text: `Workspace "${workspaceLabel}" deleted. Remote workspace row removal verified.`,
+            }
+          : {
+              kind: "error",
+              text: `Workspace "${workspaceLabel}" was deleted locally, but the remote workspace row still exists.`,
+            },
+      );
     } catch (error) {
       setWorkspaceMessage({
         kind: "error",
