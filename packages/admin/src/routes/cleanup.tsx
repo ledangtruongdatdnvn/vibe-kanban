@@ -78,18 +78,16 @@ function CleanupRoute() {
   };
 
   return (
-    <>
-      <CleanupSection
-        cleanupMessage={cleanupMessage}
-        cleanupBusy={cleanupBusy}
-        onCleanOrphans={() => {
-          void handleCleanOrphans();
-        }}
-        onCleanData={() => {
-          void handleCleanData();
-        }}
-      />
-    </>
+    <CleanupSection
+      cleanupMessage={cleanupMessage}
+      cleanupBusy={cleanupBusy}
+      onCleanOrphans={() => {
+        void handleCleanOrphans();
+      }}
+      onCleanData={() => {
+        void handleCleanData();
+      }}
+    />
   );
 }
 

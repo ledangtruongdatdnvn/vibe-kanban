@@ -102,22 +102,20 @@ function BranchesRoute() {
   };
 
   return (
-    <>
-      <BranchesSection
-        repos={repos}
-        reposLoading={reposLoading}
-        selectedRepoId={selectedRepoId}
-        selectedRepo={selectedRepo}
-        branches={branches}
-        branchesLoading={branchesLoading}
-        branchesMessage={branchesMessage}
-        deletingBranchName={deletingBranchName}
-        onSelectedRepoChange={setSelectedRepoId}
-        onDeleteBranch={(branch) => {
-          void handleDeleteBranch(branch);
-        }}
-      />
-    </>
+    <BranchesSection
+      repos={repos}
+      reposLoading={reposLoading}
+      selectedRepoId={selectedRepoId}
+      selectedRepo={selectedRepo}
+      branches={branches}
+      branchesLoading={branchesLoading}
+      branchesMessage={branchesMessage}
+      deletingBranchName={deletingBranchName}
+      onSelectedRepoChange={setSelectedRepoId}
+      onDeleteBranch={(branch) => {
+        void handleDeleteBranch(branch);
+      }}
+    />
   );
 }
 

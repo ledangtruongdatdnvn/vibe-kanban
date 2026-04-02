@@ -111,30 +111,28 @@ function WorkspacesRoute() {
   };
 
   return (
-    <>
-      <WorkspacesSection
-        workspaces={workspaces}
-        workspacesLoading={workspacesLoading}
-        workspaceMessage={workspaceMessage}
-        workspaceUsageLoading={workspaceUsageLoading}
-        workspaceUsageError={workspaceUsageError}
-        workspaceUsageById={workspaceUsageById}
-        workspaceDeleteBranch={workspaceDeleteBranch}
-        deletingWorkspaceId={deletingWorkspaceId}
-        onWorkspaceDeleteBranchChange={(workspaceId, checked) => {
-          setWorkspaceDeleteBranch((prev) => ({
-            ...prev,
-            [workspaceId]: checked,
-          }));
-        }}
-        onDeleteWorkspace={(workspace) => {
-          void handleDeleteWorkspace(workspace);
-        }}
-        onRefresh={() => {
-          void Promise.all([refreshWorkspaces(), refreshWorkspaceUsage()]);
-        }}
-      />
-    </>
+    <WorkspacesSection
+      workspaces={workspaces}
+      workspacesLoading={workspacesLoading}
+      workspaceMessage={workspaceMessage}
+      workspaceUsageLoading={workspaceUsageLoading}
+      workspaceUsageError={workspaceUsageError}
+      workspaceUsageById={workspaceUsageById}
+      workspaceDeleteBranch={workspaceDeleteBranch}
+      deletingWorkspaceId={deletingWorkspaceId}
+      onWorkspaceDeleteBranchChange={(workspaceId, checked) => {
+        setWorkspaceDeleteBranch((prev) => ({
+          ...prev,
+          [workspaceId]: checked,
+        }));
+      }}
+      onDeleteWorkspace={(workspace) => {
+        void handleDeleteWorkspace(workspace);
+      }}
+      onRefresh={() => {
+        void Promise.all([refreshWorkspaces(), refreshWorkspaceUsage()]);
+      }}
+    />
   );
 }
 

@@ -109,20 +109,18 @@ function TerminalRoute() {
   };
 
   return (
-    <>
-      <TerminalSection
-        repos={repos}
-        reposLoading={reposLoading}
-        selectedRepoId={selectedRepoId}
-        selectedRepo={selectedRepo}
-        gitAuthStatus={repoGitAuthStatus}
-        gitAuthLoading={repoGitAuthLoading}
-        repoImportBusy={repoImportBusy}
-        repoImportMessage={repoImportMessage}
-        onSelectedRepoChange={setSelectedRepoId}
-        onImportGitHubRepo={handleImportGitHubRepo}
-      />
-    </>
+    <TerminalSection
+      repos={repos}
+      reposLoading={reposLoading}
+      selectedRepoId={selectedRepoId}
+      selectedRepo={selectedRepo}
+      gitAuthStatus={repoGitAuthStatus}
+      gitAuthLoading={repoGitAuthLoading}
+      repoImportBusy={repoImportBusy}
+      repoImportMessage={repoImportMessage}
+      onSelectedRepoChange={setSelectedRepoId}
+      onImportGitHubRepo={handleImportGitHubRepo}
+    />
   );
 }
 

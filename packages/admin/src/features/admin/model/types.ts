@@ -110,7 +110,6 @@ export type WorkspaceUsageSummary = {
 export type ToolConfig = {
   command: string;
   description: string;
-  hint?: string;
   placeholder: string;
   saveLabel: string;
   title: string;

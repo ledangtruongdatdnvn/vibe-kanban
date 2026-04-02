@@ -121,22 +121,20 @@ function CredentialsRoute() {
   };
 
   return (
-    <>
-      <CredentialsSection
-        statusByTool={statusByTool}
-        valueByTool={valueByTool}
-        messageByTool={messageByTool}
-        savingByTool={savingByTool}
-        clearingCredentials={clearingCredentials}
-        onToolValueChange={setToolValue}
-        onSave={(tool) => {
-          void handleSave(tool);
-        }}
-        onClearCredentials={(tool) => {
-          void handleClearCredentials(tool);
-        }}
-      />
-    </>
+    <CredentialsSection
+      statusByTool={statusByTool}
+      valueByTool={valueByTool}
+      messageByTool={messageByTool}
+      savingByTool={savingByTool}
+      clearingCredentials={clearingCredentials}
+      onToolValueChange={setToolValue}
+      onSave={(tool) => {
+        void handleSave(tool);
+      }}
+      onClearCredentials={(tool) => {
+        void handleClearCredentials(tool);
+      }}
+    />
   );
 }
 

@@ -8,9 +8,9 @@ import {
   CardHeader,
   CardTitle,
 } from "@vibe/ui/components/Card";
+import { CopyButton } from "@vibe/ui/components/CopyButton";
 import { Label } from "@vibe/ui/components/Label";
 import { PrimaryButton } from "@vibe/ui/components/PrimaryButton";
-import { CopyButton } from "@vibe/ui/components/CopyButton";
 import { Textarea } from "@vibe/ui/components/Textarea";
 import {
   INITIAL_MESSAGE,
@@ -86,7 +86,6 @@ export function CredentialsSection({
                     />
                   </div>
                 </div>
-                {config.hint && <p>{config.hint}</p>}
               </CardDescription>
             </CardHeader>
 

@@ -260,11 +260,6 @@ function RootLayout() {
             value={String(repos.length)}
             detail="Repos available for branch cleanup"
           />
-          <OverviewCard
-            label="Visible local branches"
-            value="—"
-            detail="Select a repo in Branches"
-          />
         </div>
       </div>
     </Shell>
