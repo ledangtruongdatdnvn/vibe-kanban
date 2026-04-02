@@ -88,6 +88,22 @@ function connectionLabel(state: ConnectionState) {
   }
 }
 
+function connectionBadgeVariant(
+  state: ConnectionState,
+): "default" | "secondary" | "destructive" | "outline" {
+  switch (state) {
+    case "connected":
+      return "default";
+    case "connecting":
+    case "idle":
+      return "secondary";
+    case "error":
+      return "destructive";
+    default:
+      return "outline";
+  }
+}
+
 export function TerminalSection({
   repos,
   reposLoading,
@@ -398,6 +414,9 @@ export function TerminalSection({
     { label: "log -20", command: "git log --oneline --decorate -20" },
   ];
   const terminalReady = !!selectedRepo && connectionState === "connected";
+  const connectionStatusLabel = connectionLabel(connectionState);
+  const selectedRepoName =
+    selectedRepo?.display_name || selectedRepo?.name || "No repo selected";
   const gitAuthBadgeLabel = gitAuthLoading
     ? "checking"
     : gitAuthStatus?.ready
@@ -407,6 +426,13 @@ export function TerminalSection({
         : gitAuthStatus?.auth_mode === "unsupported"
           ? "unsupported"
           : "unavailable";
+  const gitAuthBadgeVariant = gitAuthLoading
+    ? "secondary"
+    : gitAuthStatus?.ready
+      ? "default"
+      : gitAuthStatus?.auth_mode === "unsupported"
+        ? "destructive"
+        : "outline";
 
   const handleImportSubmit = useCallback(
     (event: FormEvent<HTMLFormElement>) => {
@@ -444,6 +470,209 @@ export function TerminalSection({
             <AlertDescription>{connectionError}</AlertDescription>
           </Alert>
         )}
+
+        <div className="grid gap-double xl:grid-cols-[minmax(0,1fr)_22rem] xl:items-start">
+          <div className="min-w-0 flex flex-col gap-double">
+            <div className="rounded-lg border border-border/80 bg-panel/60 p-base">
+              <div className="flex flex-col gap-base lg:flex-row lg:items-end lg:justify-between">
+                <div className="flex w-full max-w-[20rem] flex-col gap-half">
+                  <Label htmlFor="terminal-repo-selector">Repository</Label>
+                  <Select
+                    value={selectedRepoId || undefined}
+                    onValueChange={onSelectedRepoChange}
+                    disabled={reposLoading || repos.length === 0}
+                  >
+                    <SelectTrigger
+                      id="terminal-repo-selector"
+                      className="bg-panel"
+                    >
+                      <SelectValue
+                        placeholder={
+                          reposLoading
+                            ? "Loading repositories…"
+                            : repos.length === 0
+                              ? "No repositories"
+                              : "Select a repository"
+                        }
+                      />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {repos.map((repo) => (
+                        <SelectItem key={repo.id} value={repo.id}>
+                          {repo.display_name || repo.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-half">
+                  <div className="flex items-center gap-half rounded-md border border-border/70 bg-secondary/40 px-half py-half">
+                    <span className="text-xs uppercase tracking-[0.16em] text-low">
+                      Connection
+                    </span>
+                    <Badge variant={connectionBadgeVariant(connectionState)}>
+                      {connectionStatusLabel}
+                    </Badge>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={!selectedRepo}
+                    onClick={() => {
+                      setConnectionError(null);
+                      setSessionKey((value) => value + 1);
+                    }}
+                  >
+                    Reconnect
+                  </Button>
+                </div>
+              </div>
+
+              <div className="mt-base flex flex-col gap-base border-t border-border/70 pt-base">
+                <div className="flex flex-col gap-half">
+                  <Label className="text-sm text-high">Quick actions</Label>
+                  <div className="flex flex-wrap gap-half">
+                    {quickActions.map((action) => (
+                      <Button
+                        key={action.command}
+                        variant="outline"
+                        size="sm"
+                        disabled={!terminalReady}
+                        onClick={() => runCommand(action.command)}
+                      >
+                        {action.label}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-half">
+                  <Label htmlFor="merge-target">Merge target</Label>
+                  <div className="flex flex-col gap-half sm:flex-row">
+                    <Input
+                      id="merge-target"
+                      value={mergeTarget}
+                      onChange={(event) => setMergeTarget(event.target.value)}
+                      placeholder="origin/main"
+                      className="bg-panel sm:flex-1"
+                    />
+                    <Button
+                      variant="outline"
+                      disabled={!terminalReady || !mergeTarget.trim()}
+                      onClick={() =>
+                        runCommand(`git merge ${mergeTarget.trim()}`)
+                      }
+                    >
+                      Run merge
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex min-h-[34rem] flex-col overflow-hidden rounded-lg border border-border/80 bg-secondary/70">
+              <div className="border-b border-border/70 px-base py-half">
+                <div className="flex min-w-0 flex-col gap-[0.2rem]">
+                  <span className="truncate text-sm font-medium text-high">
+                    {selectedRepoName}
+                  </span>
+                  <span className="truncate text-xs text-low">
+                    {selectedRepo?.path ||
+                      "Select a repository to open a shell."}
+                  </span>
+                </div>
+              </div>
+
+              <div
+                ref={terminalViewportRef}
+                className="relative min-h-[28rem] flex-1"
+              >
+                <div
+                  ref={terminalContainerRef}
+                  className="h-full w-full px-base py-half"
+                />
+                {!selectedRepo && (
+                  <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-secondary/90 px-double text-center text-sm text-low">
+                    Select a repository to open a shell in its root directory.
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-double">
+            <div className="rounded-lg border border-border/80 bg-panel/60 p-base">
+              <Label className="text-sm text-high">Repository details</Label>
+              {selectedRepo ? (
+                <div className="mt-base flex flex-col gap-base text-sm">
+                  <div className="flex flex-col gap-[0.2rem]">
+                    <span className="text-xs uppercase tracking-[0.16em] text-low">
+                      Selected repo
+                    </span>
+                    <span className="font-medium text-high">
+                      {selectedRepoName}
+                    </span>
+                  </div>
+                  <div className="flex flex-col gap-[0.2rem]">
+                    <span className="text-xs uppercase tracking-[0.16em] text-low">
+                      Repo path
+                    </span>
+                    <code className="break-all rounded bg-secondary/80 px-half py-[0.2rem] text-xs text-high">
+                      {selectedRepo.path}
+                    </code>
+                  </div>
+                  <div className="flex flex-col gap-[0.2rem]">
+                    <span className="text-xs uppercase tracking-[0.16em] text-low">
+                      Default target branch
+                    </span>
+                    <span className="text-high">
+                      {selectedRepo.default_target_branch || "main"}
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <p className="mt-base text-sm text-low">
+                  Select a repo to load shell details and Git metadata.
+                </p>
+              )}
+            </div>
+
+            <div className="rounded-lg border border-border/80 bg-panel/60 p-base">
+              <div className="flex flex-wrap items-center gap-half">
+                <Label className="text-sm text-high">Git auth</Label>
+                <Badge variant={gitAuthBadgeVariant}>{gitAuthBadgeLabel}</Badge>
+              </div>
+
+              <p className="mt-base text-sm text-low">
+                {gitAuthStatus?.message ||
+                  "Select a repo to inspect Git auth readiness."}
+              </p>
+
+              {gitAuthStatus?.repo_full_name && (
+                <div className="mt-base flex flex-col gap-[0.2rem]">
+                  <span className="text-xs uppercase tracking-[0.16em] text-low">
+                    GitHub repo
+                  </span>
+                  <code className="break-all rounded bg-secondary/80 px-half py-[0.2rem] text-xs text-high">
+                    {gitAuthStatus.repo_full_name}
+                  </code>
+                </div>
+              )}
+
+              {gitAuthStatus?.https_remote_url && (
+                <div className="mt-base flex flex-col gap-[0.2rem]">
+                  <span className="text-xs uppercase tracking-[0.16em] text-low">
+                    HTTPS remote
+                  </span>
+                  <code className="break-all rounded bg-secondary/80 px-half py-[0.2rem] text-xs text-high">
+                    {gitAuthStatus.https_remote_url}
+                  </code>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
 
         <form
           className="grid gap-base rounded-lg border border-border/80 bg-panel/60 p-base xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1fr)_auto]"
@@ -521,192 +750,6 @@ export function TerminalSection({
             </div>
           )}
         </form>
-
-        <div className="grid gap-double xl:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]">
-          <div className="flex flex-col gap-double">
-            <div className="flex flex-col gap-half">
-              <Label htmlFor="terminal-repo-selector">Repository</Label>
-              <Select
-                value={selectedRepoId || undefined}
-                onValueChange={onSelectedRepoChange}
-                disabled={reposLoading || repos.length === 0}
-              >
-                <SelectTrigger id="terminal-repo-selector" className="bg-panel">
-                  <SelectValue
-                    placeholder={
-                      reposLoading
-                        ? "Loading repositories…"
-                        : repos.length === 0
-                          ? "No repositories"
-                          : "Select a repository"
-                    }
-                  />
-                </SelectTrigger>
-                <SelectContent>
-                  {repos.map((repo) => (
-                    <SelectItem key={repo.id} value={repo.id}>
-                      {repo.display_name || repo.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="rounded-lg border border-border/80 bg-panel/60 p-base">
-              <div className="flex flex-wrap items-center gap-half">
-                <Label className="text-xs uppercase tracking-[0.16em] text-low">
-                  Status
-                </Label>
-                <Badge variant="outline">
-                  {connectionLabel(connectionState)}
-                </Badge>
-              </div>
-
-              {selectedRepo ? (
-                <div className="mt-base flex flex-col gap-base text-sm">
-                  <div className="flex flex-col gap-[0.2rem]">
-                    <span className="text-xs uppercase tracking-[0.16em] text-low">
-                      Repo path
-                    </span>
-                    <code className="break-all rounded bg-secondary/80 px-half py-[0.2rem] text-xs text-high">
-                      {selectedRepo.path}
-                    </code>
-                  </div>
-                  <div className="flex flex-col gap-[0.2rem]">
-                    <span className="text-xs uppercase tracking-[0.16em] text-low">
-                      Default target branch
-                    </span>
-                    <span className="text-high">
-                      {selectedRepo.default_target_branch || "main"}
-                    </span>
-                  </div>
-                  <div className="flex flex-col gap-[0.35rem]">
-                    <div className="flex flex-wrap items-center gap-half">
-                      <span className="text-xs uppercase tracking-[0.16em] text-low">
-                        Git auth
-                      </span>
-                      <Badge variant="outline">{gitAuthBadgeLabel}</Badge>
-                    </div>
-                    <p className="text-sm text-low">
-                      {gitAuthStatus?.message ||
-                        "Select a repo to inspect Git auth readiness."}
-                    </p>
-                  </div>
-                  {gitAuthStatus?.repo_full_name && (
-                    <div className="flex flex-col gap-[0.2rem]">
-                      <span className="text-xs uppercase tracking-[0.16em] text-low">
-                        GitHub repo
-                      </span>
-                      <code className="break-all rounded bg-secondary/80 px-half py-[0.2rem] text-xs text-high">
-                        {gitAuthStatus.repo_full_name}
-                      </code>
-                    </div>
-                  )}
-                  {gitAuthStatus?.https_remote_url && (
-                    <div className="flex flex-col gap-[0.2rem]">
-                      <span className="text-xs uppercase tracking-[0.16em] text-low">
-                        HTTPS remote
-                      </span>
-                      <code className="break-all rounded bg-secondary/80 px-half py-[0.2rem] text-xs text-high">
-                        {gitAuthStatus.https_remote_url}
-                      </code>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <p className="mt-base text-sm text-low">
-                  Select a repo to start a terminal session.
-                </p>
-              )}
-            </div>
-
-            <div className="flex flex-col gap-base rounded-lg border border-border/80 bg-panel/60 p-base">
-              <div className="flex items-center justify-between gap-half">
-                <Label className="text-sm text-high">Quick actions</Label>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={!selectedRepo}
-                  onClick={() => {
-                    setConnectionError(null);
-                    setSessionKey((value) => value + 1);
-                  }}
-                >
-                  Reconnect / Refresh Auth
-                </Button>
-              </div>
-
-              <div className="flex flex-wrap gap-half">
-                {quickActions.map((action) => (
-                  <Button
-                    key={action.command}
-                    variant="outline"
-                    size="sm"
-                    disabled={!terminalReady}
-                    onClick={() => runCommand(action.command)}
-                  >
-                    {action.label}
-                  </Button>
-                ))}
-              </div>
-
-              <div className="flex flex-col gap-half">
-                <Label htmlFor="merge-target">Merge target</Label>
-                <div className="flex gap-half">
-                  <Input
-                    id="merge-target"
-                    value={mergeTarget}
-                    onChange={(event) => setMergeTarget(event.target.value)}
-                    placeholder="origin/main"
-                    className="bg-panel"
-                  />
-                  <Button
-                    variant="outline"
-                    disabled={!terminalReady || !mergeTarget.trim()}
-                    onClick={() =>
-                      runCommand(`git merge ${mergeTarget.trim()}`)
-                    }
-                  >
-                    Run merge
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex min-h-[32rem] flex-col overflow-hidden rounded-lg border border-border/80 bg-secondary/70">
-            <div className="flex items-center justify-between border-b border-border/70 px-base py-half">
-              <div className="flex min-w-0 flex-col">
-                <span className="truncate text-sm font-medium text-high">
-                  {selectedRepo?.display_name ||
-                    selectedRepo?.name ||
-                    "No repo selected"}
-                </span>
-                <span className="truncate text-xs text-low">
-                  {selectedRepo?.path || "Select a repository to open a shell."}
-                </span>
-              </div>
-              <Badge variant="secondary">
-                {connectionLabel(connectionState)}
-              </Badge>
-            </div>
-
-            <div
-              ref={terminalViewportRef}
-              className="relative min-h-[28rem] flex-1"
-            >
-              <div
-                ref={terminalContainerRef}
-                className="h-full w-full px-base py-half"
-              />
-              {!selectedRepo && (
-                <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-secondary/90 px-double text-center text-sm text-low">
-                  Select a repository to open a shell in its root directory.
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
       </CardContent>
     </Card>
   );
