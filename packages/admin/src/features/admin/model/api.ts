@@ -145,10 +145,15 @@ export async function deleteWorkspace(
   workspaceId: string,
   deleteBranches: boolean,
 ) {
+  const params = new URLSearchParams();
+  params.set("delete_remote", "true");
+
+  if (deleteBranches) {
+    params.set("delete_branches", "true");
+  }
+
   return requestEnvelopeAction(
-    `/api/workspaces/${workspaceId}${
-      deleteBranches ? "?delete_branches=true" : ""
-    }`,
+    `/api/workspaces/${workspaceId}?${params.toString()}`,
     {
       method: "DELETE",
     },
