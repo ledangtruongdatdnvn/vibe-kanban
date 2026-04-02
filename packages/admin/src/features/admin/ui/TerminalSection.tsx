@@ -439,14 +439,6 @@ export function TerminalSection({
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-double">
-        <Alert>
-          <AlertDescription>
-            This is full shell access inside the selected repository. Keep Host
-            Admin private, turn it off when finished, and treat every command as
-            production-adjacent.
-          </AlertDescription>
-        </Alert>
-
         {connectionError && (
           <Alert variant="destructive">
             <AlertDescription>{connectionError}</AlertDescription>
