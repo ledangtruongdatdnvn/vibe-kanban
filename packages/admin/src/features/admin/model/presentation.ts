@@ -12,31 +12,26 @@ export const TABS: TabMeta[] = [
     id: "credentials",
     label: "Credentials",
     summary: "Claude and Codex access",
-    description: "Paste or clear saved subscription credentials.",
   },
   {
     id: "workspaces",
     label: "Workspaces",
     summary: "Lifecycle-safe deletion",
-    description: "Delete workspaces through the normal host backend flow.",
   },
   {
     id: "branches",
     label: "Branches",
     summary: "Local branch maintenance",
-    description: "Remove stale local branches without touching remotes.",
   },
   {
     id: "terminal",
     label: "Terminal",
     summary: "Repo shell access",
-    description: "Open an authenticated terminal in a repo root for git ops.",
   },
   {
     id: "cleanup",
     label: "Cleanup",
     summary: "Prune or wipe persisted state",
-    description: "Run safe orphan cleanup or wipe mounted host data.",
   },
 ];
 

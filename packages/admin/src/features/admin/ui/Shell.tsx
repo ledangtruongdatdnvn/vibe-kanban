@@ -8,12 +8,14 @@ type ShellProps = {
   children: ReactNode;
   maxWidthClassName?: string;
   onLogout?: () => void;
+  showThemeToggle?: boolean;
 };
 
 export function Shell({
   children,
   maxWidthClassName = "max-w-full",
   onLogout,
+  showThemeToggle = true,
 }: ShellProps) {
   const { theme, setTheme } = useTheme();
   const isLightTheme = theme === ThemeMode.LIGHT;
@@ -27,13 +29,15 @@ export function Shell({
         )}
       >
         <div className="flex items-center justify-end gap-half">
-          <Button
-            onClick={() =>
-              setTheme(isLightTheme ? ThemeMode.DARK : ThemeMode.LIGHT)
-            }
-          >
-            {isLightTheme ? "Use dark theme" : "Use light theme"}
-          </Button>
+          {showThemeToggle && (
+            <Button
+              onClick={() =>
+                setTheme(isLightTheme ? ThemeMode.DARK : ThemeMode.LIGHT)
+              }
+            >
+              {isLightTheme ? "Use dark theme" : "Use light theme"}
+            </Button>
+          )}
           {onLogout && <Button onClick={onLogout}>Log out</Button>}
         </div>
         {children}

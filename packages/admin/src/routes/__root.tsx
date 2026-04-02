@@ -39,9 +39,8 @@ import { SectionNav } from "@admin/features/admin/ui/SectionNav";
 import { Shell } from "@admin/features/admin/ui/Shell";
 
 export const AdminContext = createContext<{
-  onLogout: () => void;
   refreshOverview: () => void;
-}>(null as unknown as { onLogout: () => void; refreshOverview: () => void });
+}>(null as unknown as { refreshOverview: () => void });
 
 function StateCard({
   title,
@@ -224,14 +223,7 @@ function RootLayout() {
 
   if (!session.authenticated) {
     return (
-      <Shell maxWidthClassName="max-w-[30rem]">
-        <header className="flex flex-col gap-half">
-          <h1 className="text-xl font-semibold text-high">Host Admin</h1>
-          <p className="text-base text-low">
-            Temporary admin console for credentials, workspace cleanup, branch
-            maintenance, and repo shell access.
-          </p>
-        </header>
+      <Shell maxWidthClassName="max-w-[30rem]" showThemeToggle={false}>
         <LoginCard
           loginSecret={loginSecret}
           loginBusy={loginBusy}
@@ -251,38 +243,7 @@ function RootLayout() {
 
   return (
     <Shell onLogout={handleLogout}>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <OverviewCard
-          label="Saved credentials"
-          value={`${savedCredentialsCount}/2`}
-          detail="Claude and Codex volumes"
-        />
-        <OverviewCard
-          label="Worktree disk"
-          value={
-            workspaceUsageLoading && !workspaceUsage
-              ? "Loading…"
-              : formatBytes(workspaceUsage?.total_bytes ?? 0)
-          }
-          detail={
-            workspaceUsage
-              ? `${workspaceUsage.existing_workspace_count}/${workspaceUsage.workspace_count} workspace dirs present`
-              : "—"
-          }
-        />
-        <OverviewCard
-          label="Registered repos"
-          value={String(repos.length)}
-          detail="Repos available for branch cleanup"
-        />
-        <OverviewCard
-          label="Visible local branches"
-          value="—"
-          detail="Select a repo in Branches"
-        />
-      </div>
-
-      <div className="grid gap-double lg:grid-cols-[16rem_minmax(0,1fr)] lg:items-start">
+      <div className="grid gap-double lg:grid-cols-[16rem_minmax(0,1fr)] lg:items-start xl:grid-cols-[16rem_minmax(0,1fr)_18rem]">
         <Card className="border border-border bg-panel/95 backdrop-blur-sm lg:sticky lg:top-double">
           <CardHeader className="pb-base">
             <CardTitle className="text-base">Sections</CardTitle>
@@ -291,20 +252,45 @@ function RootLayout() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <SectionNav
-              activeTab={activeTab}
-              tabs={TABS}
-              onTabChange={() => {}}
-            />
+            <SectionNav activeTab={activeTab} tabs={TABS} />
           </CardContent>
         </Card>
 
         <div className="min-w-0 flex flex-col gap-double">
-          <AdminContext.Provider
-            value={{ onLogout: handleLogout, refreshOverview }}
-          >
+          <AdminContext.Provider value={{ refreshOverview }}>
             <Outlet />
           </AdminContext.Provider>
+        </div>
+
+        <div className="flex flex-col gap-4 lg:col-span-2 xl:col-span-1 xl:sticky xl:top-double">
+          <OverviewCard
+            label="Saved credentials"
+            value={`${savedCredentialsCount}/2`}
+            detail="Claude and Codex volumes"
+          />
+          <OverviewCard
+            label="Worktree disk"
+            value={
+              workspaceUsageLoading && !workspaceUsage
+                ? "Loading…"
+                : formatBytes(workspaceUsage?.total_bytes ?? 0)
+            }
+            detail={
+              workspaceUsage
+                ? `${workspaceUsage.existing_workspace_count}/${workspaceUsage.workspace_count} workspace dirs present`
+                : "—"
+            }
+          />
+          <OverviewCard
+            label="Registered repos"
+            value={String(repos.length)}
+            detail="Repos available for branch cleanup"
+          />
+          <OverviewCard
+            label="Visible local branches"
+            value="—"
+            detail="Select a repo in Branches"
+          />
         </div>
       </div>
     </Shell>

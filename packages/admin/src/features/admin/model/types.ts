@@ -120,5 +120,4 @@ export type TabMeta = {
   id: Tab;
   label: string;
   summary: string;
-  description: string;
 };

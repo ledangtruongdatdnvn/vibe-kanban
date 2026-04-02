@@ -13,7 +13,6 @@ const TAB_PATHS: Record<Tab, string> = {
 type SectionNavProps = {
   activeTab: Tab;
   tabs: TabMeta[];
-  onTabChange: (tab: Tab) => void;
 };
 
 export function SectionNav({ activeTab, tabs }: SectionNavProps) {
