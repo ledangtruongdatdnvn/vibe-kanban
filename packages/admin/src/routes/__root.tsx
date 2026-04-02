@@ -42,23 +42,6 @@ export const AdminContext = createContext<{
   refreshOverview: () => void;
 }>(null as unknown as { refreshOverview: () => void });
 
-function StateCard({
-  title,
-  description,
-}: {
-  title: string;
-  description: string;
-}) {
-  return (
-    <Card className="border border-border">
-      <CardHeader>
-        <CardTitle>{title}</CardTitle>
-        <CardDescription>{description}</CardDescription>
-      </CardHeader>
-    </Card>
-  );
-}
-
 function pathToTab(pathname: string): Tab {
   if (pathname.startsWith("/workspaces")) return "workspaces";
   if (pathname.startsWith("/branches")) return "branches";
@@ -194,46 +177,37 @@ function RootLayout() {
 
   if (sessionError) {
     return (
-      <Shell maxWidthClassName="max-w-[36rem]">
-        <Alert variant="destructive">
-          <AlertDescription>{sessionError}</AlertDescription>
-        </Alert>
-      </Shell>
+      <Alert variant="destructive">
+        <AlertDescription>{sessionError}</AlertDescription>
+      </Alert>
     );
   }
 
   if (!session) {
-    return (
-      <Shell maxWidthClassName="max-w-[36rem]">
-        <StateCard title="Host Admin" description="Loading session…" />
-      </Shell>
-    );
+    return null;
   }
 
   if (!session.configured) {
     return (
-      <Shell maxWidthClassName="max-w-[36rem]">
-        <StateCard
-          title="Host Admin"
-          description="Configure ADMIN_SECRET before exposing this service."
-        />
-      </Shell>
+      <Alert variant="destructive">
+        <AlertDescription>
+          Configure ADMIN_SECRET before exposing this service.
+        </AlertDescription>
+      </Alert>
     );
   }
 
   if (!session.authenticated) {
     return (
-      <Shell maxWidthClassName="max-w-[30rem]" showThemeToggle={false}>
-        <LoginCard
-          loginSecret={loginSecret}
-          loginBusy={loginBusy}
-          loginMessage={loginMessage}
-          onLoginSecretChange={setLoginSecret}
-          onLogin={() => {
-            void handleLogin();
-          }}
-        />
-      </Shell>
+      <LoginCard
+        loginSecret={loginSecret}
+        loginBusy={loginBusy}
+        loginMessage={loginMessage}
+        onLoginSecretChange={setLoginSecret}
+        onLogin={() => {
+          void handleLogin();
+        }}
+      />
     );
   }
 

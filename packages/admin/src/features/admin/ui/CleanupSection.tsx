@@ -39,7 +39,7 @@ export function CleanupSection({
             worktree directories and stale Git worktree metadata.
           </p>
           <PrimaryButton
-            className="mt-auto h-10 min-h-0 w-full justify-center"
+            className="mt-auto w-full justify-center"
             onClick={onCleanOrphans}
             disabled={cleanupBusy !== null}
             actionIcon={cleanupBusy === "orphans" ? "spinner" : undefined}
