@@ -64,11 +64,13 @@ export function CredentialsSection({
             <CardHeader className="gap-double">
               <div className="flex items-center justify-between gap-half">
                 <CardTitle className="text-lg">{config.title}</CardTitle>
-                <Badge variant={isSavedStatus(status) ? "default" : "outline"}>
+                <Badge
+                  variant={isSavedStatus(status) ? "default" : "secondary"}
+                >
                   {statusBadgeText(status)}
                 </Badge>
               </div>
-              <CardDescription className="grid min-h-[7.5rem] content-start gap-half">
+              <CardDescription className="grid content-start gap-half">
                 <p>{config.description}</p>
                 <div className="flex items-start gap-half rounded border border-border bg-primary/20 px-half py-half">
                   <code className="flex-1 whitespace-pre-wrap break-all text-xs text-high">
@@ -112,7 +114,7 @@ export function CredentialsSection({
                 </Alert>
               )}
 
-              <div className="mt-auto flex flex-wrap gap-half">
+              <div className="flex flex-wrap gap-half">
                 <PrimaryButton
                   onClick={() => onSave(tool)}
                   disabled={isSaving}

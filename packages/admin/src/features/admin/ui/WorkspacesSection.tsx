@@ -112,6 +112,7 @@ export function WorkspacesSection({
               {!workspacesLoading &&
                 !workspaceUsageLoading &&
                 workspaces.map((workspace) => {
+                  const deleteBranchCheckboxId = `workspace-delete-branch-${workspace.id}`;
                   const usage = workspaceUsageById.get(workspace.id);
                   const existingRepoWorktrees =
                     usage?.repo_worktrees.filter((repo) => repo.exists) ?? [];
@@ -195,6 +196,7 @@ export function WorkspacesSection({
                       <TableCell>
                         <div className="flex items-center gap-half">
                           <Checkbox
+                            id={deleteBranchCheckboxId}
                             checked={
                               workspaceDeleteBranch[workspace.id] ?? false
                             }
@@ -205,9 +207,12 @@ export function WorkspacesSection({
                               )
                             }
                           />
-                          <span className="text-sm text-low">
+                          <label
+                            htmlFor={deleteBranchCheckboxId}
+                            className="cursor-pointer text-sm text-low"
+                          >
                             also delete branch
-                          </span>
+                          </label>
                         </div>
                       </TableCell>
                       <TableCell className="text-right">

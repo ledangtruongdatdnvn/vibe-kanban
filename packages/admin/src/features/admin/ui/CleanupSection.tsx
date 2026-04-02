@@ -29,8 +29,8 @@ export function CleanupSection({
         <CardHeader>
           <CardTitle className="text-lg">Clean orphan worktrees</CardTitle>
           <CardDescription>
-            Trigger orphan workspace cleanup immediately and run{" "}
-            <code>git worktree prune</code> across registered repos.
+            Clean up orphan workspaces now and run{" "}
+            <code>git worktree prune</code> across all registered repos.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-1 flex-col gap-double">
