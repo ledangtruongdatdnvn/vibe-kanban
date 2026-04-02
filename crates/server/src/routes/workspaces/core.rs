@@ -11,7 +11,9 @@ use db::models::{
 };
 use deployment::Deployment;
 use serde::Deserialize;
-use services::services::{container::ContainerService, diff_stream, remote_sync};
+use services::services::{
+    container::ContainerService, diff_stream, remote_client::RemoteClientError, remote_sync,
+};
 use sqlx::Error as SqlxError;
 use utils::response::ApiResponse;
 use workspace_manager::WorkspaceManager;
@@ -138,6 +140,26 @@ pub async fn delete_workspace(
         }
     }
 
+    if query.delete_remote {
+        let client = deployment.remote_client()?;
+        match client.delete_workspace(workspace_id).await {
+            Ok(()) => {
+                tracing::info!("Deleted remote workspace for {}", workspace_id);
+            }
+            Err(RemoteClientError::Http { status: 404, .. }) => {
+                tracing::debug!("Remote workspace for {} was already absent", workspace_id);
+            }
+            Err(e) => {
+                tracing::warn!(
+                    "Failed to delete remote workspace for {}: {}",
+                    workspace_id,
+                    e
+                );
+                return Err(e.into());
+            }
+        }
+    }
+
     let managed_workspace = workspace_manager.load_managed_workspace(workspace).await?;
     let deletion_context = managed_workspace.prepare_deletion_context().await?;
     let rows_affected = managed_workspace.delete_record().await?;
@@ -154,28 +176,6 @@ pub async fn delete_workspace(
             }),
         )
         .await;
-
-    if query.delete_remote {
-        if let Ok(client) = deployment.remote_client() {
-            match client.delete_workspace(workspace_id).await {
-                Ok(()) => {
-                    tracing::info!("Deleted remote workspace for {}", workspace_id);
-                }
-                Err(e) => {
-                    tracing::warn!(
-                        "Failed to delete remote workspace for {}: {}",
-                        workspace_id,
-                        e
-                    );
-                }
-            }
-        } else {
-            tracing::debug!(
-                "Remote client not available, skipping remote deletion for {}",
-                workspace_id
-            );
-        }
-    }
 
     WorkspaceManager::spawn_workspace_deletion_cleanup(deletion_context, query.delete_branches);
 
