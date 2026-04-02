@@ -161,21 +161,10 @@ export async function deleteWorkspace(
 }
 
 export async function verifyRemoteWorkspaceDeleted(workspaceId: string) {
-  const response = await fetch(
+  const data = await requestJson<{ exists: boolean }>(
     `/api/remote/workspaces/by-local-id/${workspaceId}`,
   );
-
-  if (response.status === 404) {
-    return true;
-  }
-
-  const payload = (await response.json()) as ApiEnvelope<Workspace>;
-
-  if (!response.ok) {
-    throw new Error(extractEnvelopeError(payload, response.status));
-  }
-
-  return false;
+  return !data.exists;
 }
 
 export async function fetchRepos() {

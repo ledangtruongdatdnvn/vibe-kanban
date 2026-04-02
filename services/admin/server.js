@@ -542,7 +542,10 @@ async function handleLogin(req, res) {
     200,
     { message: "Logged in." },
     {
-      "Set-Cookie": buildSessionCookie(token, Math.floor(SESSION_TTL_MS / 1000)),
+      "Set-Cookie": buildSessionCookie(
+        token,
+        Math.floor(SESSION_TTL_MS / 1000),
+      ),
     },
   );
 }
@@ -584,9 +587,13 @@ async function handleSaveCredentials(req, res) {
   const filename = tool === "claude" ? ".credentials.json" : "auth.json";
   ensureDir(dir);
 
-  fs.writeFileSync(path.join(dir, filename), JSON.stringify(credentialObject, null, 2), {
-    mode: 0o644,
-  });
+  fs.writeFileSync(
+    path.join(dir, filename),
+    JSON.stringify(credentialObject, null, 2),
+    {
+      mode: 0o644,
+    },
+  );
 
   console.log(`[admin] saved ${tool} credentials to ${dir}/${filename}`);
   json(res, 200, { message: `${tool} credentials saved successfully.` });
@@ -734,13 +741,22 @@ async function handleApi(req, res, url) {
     }
 
     try {
-      sendProxyResponse(
-        res,
-        await proxyToHost(
-          "GET",
-          `/api/remote/workspaces/by-local-id/${encodeURIComponent(workspaceId)}`,
-        ),
+      const proxied = await proxyToHost(
+        "GET",
+        `/api/remote/workspaces/by-local-id/${encodeURIComponent(workspaceId)}`,
       );
+
+      if (proxied.status === 404) {
+        json(res, 200, { exists: false });
+        return;
+      }
+
+      if (proxied.status >= 200 && proxied.status < 300) {
+        json(res, 200, { exists: true });
+        return;
+      }
+
+      sendProxyResponse(res, proxied);
     } catch (error) {
       json(res, 502, {
         error:
@@ -855,7 +871,10 @@ async function handleApi(req, res, url) {
     try {
       sendProxyResponse(
         res,
-        await proxyToHost("GET", `/api/repos/${encodeURIComponent(repoId)}/git-auth`),
+        await proxyToHost(
+          "GET",
+          `/api/repos/${encodeURIComponent(repoId)}/git-auth`,
+        ),
       );
     } catch (error) {
       json(res, 502, {
@@ -874,7 +893,10 @@ async function handleApi(req, res, url) {
     try {
       sendProxyResponse(
         res,
-        await proxyToHost("GET", `/api/repos/${encodeURIComponent(repoId)}/branches`),
+        await proxyToHost(
+          "GET",
+          `/api/repos/${encodeURIComponent(repoId)}/branches`,
+        ),
       );
     } catch (error) {
       json(res, 502, {
@@ -920,7 +942,10 @@ async function handleApi(req, res, url) {
 
 const server = http.createServer(async (req, res) => {
   try {
-    const url = new URL(req.url || "/", `http://${req.headers.host || "localhost"}`);
+    const url = new URL(
+      req.url || "/",
+      `http://${req.headers.host || "localhost"}`,
+    );
 
     if (url.pathname.startsWith("/api/")) {
       await handleApi(req, res, url);
@@ -947,7 +972,10 @@ const server = http.createServer(async (req, res) => {
 
 server.on("upgrade", (req, socket, head) => {
   try {
-    const url = new URL(req.url || "/", `http://${req.headers.host || "localhost"}`);
+    const url = new URL(
+      req.url || "/",
+      `http://${req.headers.host || "localhost"}`,
+    );
 
     if (!url.pathname.startsWith("/api/")) {
       writeUpgradeError(socket, 404, "Not found");

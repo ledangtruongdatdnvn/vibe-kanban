@@ -23,6 +23,10 @@ import { AppBarNotificationBellContainer } from "@/pages/workspaces/AppBarNotifi
 import { SettingsDialog } from "@/shared/dialogs/settings/SettingsDialog";
 import { CommandBarDialog } from "@/shared/dialogs/command-bar/CommandBarDialog";
 import { useCommandBarShortcut } from "@/shared/hooks/useCommandBarShortcut";
+import {
+  isProjectDestination,
+  isWorkspacesDestination,
+} from "@/shared/lib/routes/appNavigation";
 import { listOrganizationProjects } from "@remote/shared/lib/api";
 import { RemoteAppBarUserPopoverContainer } from "@remote/app/layout/RemoteAppBarUserPopoverContainer";
 import { RemoteNavbarContainer } from "@remote/app/layout/RemoteNavbarContainer";
@@ -31,6 +35,7 @@ import {
   resolveRelayNavigationHostId,
   useRelayAppBarHosts,
 } from "@remote/shared/hooks/useRelayAppBarHosts";
+import { resolveRemoteDestinationFromPath } from "@remote/app/navigation/AppNavigation";
 import {
   CreateOrganizationDialog,
   type CreateOrganizationResult,
@@ -59,8 +64,12 @@ export function RemoteAppShell({ children }: RemoteAppShellProps) {
   const location = useLocation();
   const { hostId: routeHostId } = useParams({ strict: false });
   const { isSignedIn } = useAuth();
-  const isWorkspaceContextRoute = location.pathname.includes("/workspaces");
-  const isProjectRoute = /^\/projects\/[^/]+/.test(location.pathname);
+  const destination = useMemo(
+    () => resolveRemoteDestinationFromPath(location.pathname),
+    [location.pathname],
+  );
+  const isWorkspaceContextRoute = isWorkspacesDestination(destination);
+  const isProjectRoute = isProjectDestination(destination);
 
   useCommandBarShortcut(
     () => CommandBarDialog.show(),
@@ -133,7 +142,7 @@ export function RemoteAppShell({ children }: RemoteAppShellProps) {
     organizations.find((organization) => organization.id === selectedOrgId)
       ?.name ?? null;
 
-  const isWorkspacesActive = location.pathname.includes("/workspaces");
+  const isWorkspacesActive = isWorkspaceContextRoute;
   const activeHostId = routeHostId ?? null;
   const preferredHostId = useMemo(
     () => resolveRelayNavigationHostId(relayHosts, { routeHostId }),
