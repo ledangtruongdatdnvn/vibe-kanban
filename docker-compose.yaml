@@ -201,6 +201,10 @@ services:
       # The app stores these under the OS data dir on Linux:
       #   /home/node/.local/share/vibe-kanban
       - host-data:/home/node/.local/share/vibe-kanban
+      # Expose the default Linux worktree temp dir on the host so SSH-based
+      # IDE deeplinks can open workspaces created under /var/tmp/vibe-kanban.
+      # Override with HOST_WORKTREES_DIR in .env if you need a different host path.
+      - ${HOST_WORKTREES_DIR:-/var/tmp/vibe-kanban}:/var/tmp/vibe-kanban
       # Mount a dedicated host directory where repos will be cloned / worked on.
       # Default: /srv/vibe-kanban/repos on the server -> /home/node/repos in container.
       # Override with HOST_REPOS_DIR in .env if you need a different host path.
